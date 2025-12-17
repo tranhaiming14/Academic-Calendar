@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, Bell, ChevronLeft } from "lucide-react";
+import { CalendarIcon, Bell, ChevronLeft, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function ApproveEvents() {
@@ -130,18 +130,34 @@ export default function ApproveEvents() {
           ) : (
             <div className="space-y-4 max-h-[55vh] overflow-auto pr-2">
               {pending.map((e) => (
-                <div key={e.id} className="bg-white p-4 rounded-md shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-semibold">{e.title || "Untitled"}</div>
-                      <div className="text-xs text-gray-500">{e.date} · {e.location}</div>
-                      <div className="text-sm mt-2 text-gray-700">Course: {e.course} · Tutor: {e.tutor}</div>
+                <div key={e.id} className="bg-white p-4 rounded-md shadow-sm hover:shadow-md transition-shadow border border-gray-100">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold text-gray-800 text-lg">{e.title || "Untitled"}</div>
+                        <div className="text-xs text-gray-500">{e.date}</div>
+                      </div>
+
+                      <div className="mt-2 text-sm text-gray-600">{e.location}</div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">Course: {e.course}</span>
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">Tutor: {e.tutor}</span>
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded bg-yellow-100 text-yellow-800">Pending</span>
+                      </div>
+
+                      {e.notes && <div className="mt-3 text-sm text-gray-700">{e.notes}</div>}
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+
+                    <div className="flex flex-col items-end gap-3">
                       <div className="text-sm text-gray-500">{e.startHour} - {e.endHour}</div>
                       <div className="flex gap-2">
-                        <button onClick={() => updateStatus(e.id, "approved")} className="px-3 py-1 bg-green-600 text-white rounded">Approve</button>
-                        <button onClick={() => updateStatus(e.id, "rejected")} className="px-3 py-1 bg-red-600 text-white rounded">Reject</button>
+                        <button onClick={() => updateStatus(e.id, "rejected")} className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition">
+                          <X className="w-4 h-4" /> Reject
+                        </button>
+                        <button onClick={() => updateStatus(e.id, "approved")} className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition">
+                          <Check className="w-4 h-4" /> Approve
+                        </button>
                       </div>
                     </div>
                   </div>

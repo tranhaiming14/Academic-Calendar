@@ -17,6 +17,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
   const [startHour, setStartHour] = useState("");
   const [endHour, setEndHour] = useState("");
   const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(false);
 
   const locations = [
     "-- Choose location --",
@@ -57,27 +58,34 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       } catch (err) {
         /* ignore */
       }
+      setSaved(true);
+      setTimeout(() => {
+        if (onDone) onDone();
+      }, 700);
     } catch (err) {
       console.error(err);
     }
-    if (onDone) onDone();
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {saved && (
+        <div className="rounded-md bg-green-50 border border-green-100 p-3 text-sm text-green-800">Event created and sent for approval.</div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm" />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2" placeholder="Short, descriptive title" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm" />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Location</label>
-          <select value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm">
+          <select value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
             {locations.map((l) => (
               <option key={l} value={l}>{l}</option>
             ))}
@@ -88,7 +96,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Course</label>
-          <select value={course} onChange={(e) => setCourse(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm">
+          <select value={course} onChange={(e) => setCourse(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
             {courses.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -96,7 +104,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Tutor</label>
-          <select value={tutor} onChange={(e) => setTutor(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm">
+          <select value={tutor} onChange={(e) => setTutor(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
             {tutors.map((t) => (
               <option key={t} value={t}>{t}</option>
             ))}
@@ -107,7 +115,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">Start hour</label>
-          <select value={startHour} onChange={(e) => setStartHour(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm">
+          <select value={startHour} onChange={(e) => setStartHour(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
             <option value="">-- from --</option>
             {hours.map((h) => (
               <option key={h} value={h}>{h}</option>
@@ -116,7 +124,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">End hour</label>
-          <select value={endHour} onChange={(e) => setEndHour(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm">
+          <select value={endHour} onChange={(e) => setEndHour(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2">
             <option value="">-- to --</option>
             {hours.map((h) => (
               <option key={h} value={h}>{h}</option>
@@ -127,11 +135,14 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-700">(Optional) Notes</label>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 block w-full rounded-md border-black border-2 shadow-sm" rows={3} />
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2" rows={4} placeholder="Additional context, objectives, or materials needed" />
       </div>
 
-      <div>
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md">Create & Send to DAA</button>
+      <div className="flex items-center gap-3">
+        <button type="submit" disabled={saved} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+          Create & Send to DAA
+        </button>
+        <button type="button" onClick={() => { if (onDone) onDone(); }} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md">Cancel</button>
       </div>
     </form>
   );
