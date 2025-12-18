@@ -16,6 +16,7 @@ import CalendarPage from "./pages/Calendar";
 import CreateEvents from "./pages/CreateEvents";
 import ApproveEvents from "./pages/ApproveEvents";
 import RequireAuth from "./components/RequireAuth";
+import RequireRole from "./components/RequireRole";
 
 const queryClient = new QueryClient();
 
@@ -32,8 +33,26 @@ const App = () => (
           <Route path="/edit-profile" element={<RequireAuth><EditProfile /></RequireAuth>} />
           <Route path="/profile/student" element={<RequireAuth><EditProfileStudent /></RequireAuth>} />
           <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
-          <Route path="/create" element={<RequireAuth><CreateEvents /></RequireAuth>} />
-          <Route path="/approve" element={<RequireAuth><ApproveEvents /></RequireAuth>} />
+          <Route
+            path="/create"
+            element={
+              <RequireAuth>
+                <RequireRole roles={["academic_assistant", "administrator"]}>
+                  <CreateEvents />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/approve"
+            element={
+              <RequireAuth>
+                <RequireRole roles={["department_assistant", "administrator"]}>
+                  <ApproveEvents />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

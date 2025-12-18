@@ -20,12 +20,28 @@ def _parse_time(t: str):
         return None
 
 
+    def _require_role_or_404(request, allowed_roles):
+        try:
+            role = getattr(request.user, "role", None)
+        except Exception:
+            role = None
+        if role not in allowed_roles:
+            logger.warning(f"Unauthorized role access attempt by user={getattr(request.user, 'id', None)} role={role} allowed={allowed_roles}")
+            return Response({"detail": "Not found."}, status=404)
+        return None
+
+
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def create_event(request):
     data = request.data.copy()
     user_info = request.user if hasattr(request, 'user') and request.user and getattr(request.user, 'is_authenticated', False) else 'anonymous'
     logger.info(f"create_event called by {user_info}; payload={data}")
+    # Permission: only academic assistants and administrators may create events
+    res = _require_role_or_404(request, ("academic_assistant", "administrator"))
+    if res:
+        return res
+
     # resolve course
     course_val = data.get("course")
     if course_val is None:
@@ -148,6 +164,11 @@ def edit_event(request, event_id):
     except ScheduledEvent.DoesNotExist:
         return Response({"error": "Event not found"}, status=404)
 
+    # Only academic assistants and administrators can edit pending events
+    res = _require_role_or_404(request, ("academic_assistant", "administrator"))
+    if res:
+        return res
+
     if event.status != "pending":
         return Response({"error": "Only pending events can be edited"}, status=400)
 
@@ -165,6 +186,11 @@ def approve_event(request, event_id):
         event = ScheduledEvent.objects.get(id=event_id)
     except ScheduledEvent.DoesNotExist:
         return Response({"error": "Event not found"}, status=404)
+
+    # Only department academic assistants and administrators can approve
+    res = _require_role_or_404(request, ("department_assistant", "administrator"))
+    if res:
+        return res
 
     event.status = "approved"
     event.save()
@@ -186,6 +212,11 @@ def reject_event(request, event_id):
         event = ScheduledEvent.objects.get(id=event_id)
     except ScheduledEvent.DoesNotExist:
         return Response({"error": "Event not found"}, status=404)
+
+    # Only department academic assistants and administrators can reject
+    res = _require_role_or_404(request, ("department_assistant", "administrator"))
+    if res:
+        return res
 
     event.status = "rejected"
     event.save()
