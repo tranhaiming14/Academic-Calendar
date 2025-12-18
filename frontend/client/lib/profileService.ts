@@ -59,3 +59,19 @@ export const getProfile = async (): Promise<Profile | null> => {
     return null;
   }
 };
+
+export const updateProfile = async (token: string, data: Partial<Profile>): Promise<Profile> => {
+  const res = await fetch(`${API}/users/my-profile/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) throw new Error("Update failed");
+  const p = (await res.json()) as Profile;
+  try { saveLocalProfile(p); } catch {}
+  return p;
+};

@@ -6,12 +6,15 @@ from .serializers import StudentProfileSerializer, UserSerializer
 from .permissions import IsDAAOrAdminOrHasModelPerm
 from rest_framework.permissions import IsAuthenticated
 
-class UserProfileView(generics.RetrieveAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+class UserProfileView(generics.RetrieveUpdateAPIView):
+	"""Retrieve or update the current user's profile.
+	Allows the authenticated user to view and edit their own `username`/`email`.
+	"""
+	serializer_class = UserSerializer
+	permission_classes = [IsAuthenticated]
 
-    def get_object(self):
-        return self.request.user
+	def get_object(self):
+		return self.request.user
 
 
 class StudentProfileCreateView(generics.CreateAPIView):
