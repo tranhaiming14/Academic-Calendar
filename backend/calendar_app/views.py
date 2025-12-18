@@ -261,3 +261,19 @@ def rooms_available(request):
     qs = Room.objects.exclude(id__in=list(busy_rooms))
     data = [{"id": r.id, "name": r.name} for r in qs]
     return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def scheduledevents_list(request):
+    """Public: return all scheduled events (no auth)."""
+    qs = ScheduledEvent.objects.all().order_by('date', 'start_time')
+    serializer = ScheduledEventSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def events_fallback(request):
+    """Backward-compatible endpoint: /calendar/events/"""
+    return scheduledevents_list(request)

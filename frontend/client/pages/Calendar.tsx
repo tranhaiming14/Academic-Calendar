@@ -5,12 +5,33 @@ import { ChevronLeft, ChevronRight, CalendarIcon, Bell } from "lucide-react";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 import { useNavigate } from "react-router-dom";
 
+type EventItem = {
+  id: number;
+  status?: string;
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+  room?: any;
+  room_name?: string | null;
+  course?: any;
+  course_name?: string | null;
+  title?: string;
+  event_type?: string;
+  location?: string;
+  notes?: string;
+  tutor_name?: string | null;
+};
+
 export default function CalendarPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
   const [selected, setSelected] = useState<Date | undefined>(undefined);
-  const [events, setEvents] = useState<Array<any>>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const API_BASE = (import.meta as any).env.VITE_API_BASE || "http://localhost:8000";
 
   const getMonthMatrix = (date: Date) => {
     const year = date.getFullYear();
@@ -32,20 +53,45 @@ export default function CalendarPage() {
     return matrix;
   };
 
-  useEffect(() => {
-    const raw = localStorage.getItem("events");
-    const arr = raw ? JSON.parse(raw) : [];
-    setEvents(arr);
-  }, []);
+  const fmtTime = (t: any) => {
+    if (!t) return "";
+    if (typeof t === "string") return t.length >= 5 ? t.slice(0,5) : t;
+    try { return t.toString().slice(0,5); } catch { return String(t); }
+  };
 
   useEffect(() => {
-    const handler = () => {
-      const raw = localStorage.getItem("events");
-      const arr = raw ? JSON.parse(raw) : [];
-      setEvents(arr);
+    let mounted = true;
+    const fetchEvents = async (): Promise<void> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_BASE}/calendar/scheduledevents/`);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+        console.log("Fetched events raw:", data);
+        if (!mounted) return;
+        // normalize to array of events
+        const normalized = Array.isArray(data) ? data : (data.results || []);
+        setEvents(normalized);
+      } catch (err: any) {
+        setError(String(err));
+        console.warn("Failed to fetch /scheduledevents/, trying /events/:", err);
+        // fallback: try a shorter path
+        try {
+          const res2 = await fetch(`${API_BASE}/calendar/events/`);
+          if (res2.ok) {
+            const d2 = await res2.json();
+            console.log("Fetched events fallback:", d2);
+            if (mounted) setEvents(Array.isArray(d2) ? d2 : (d2.results || []));
+            setError(null);
+          }
+        } catch {}
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
-    window.addEventListener("events:changed", handler);
-    return () => window.removeEventListener("events:changed", handler);
+    fetchEvents();
+    return () => { mounted = false; };
   }, []);
 
   return (
@@ -121,16 +167,6 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex-1 p-0 flex flex-col items-stretch min-h-0">
-        <div className="mb-6">
-          <DashboardBanner
-            images={[
-              "https://storage.googleapis.com/usth-edu.appspot.com/2025-08-14_10-34-59%2Fbanner-ts.jpg",
-              "http://storage.googleapis.com/usth-edu.appspot.com/2025-08-14_10-35-08%2Fbanner-master.jpg",
-              "https://usth.edu.vn/wp-content/uploads/2021/12/1slidectsv.jpg",
-            ]}
-            intervalMs={5000}
-          />
-        </div>
 
         <div className="flex gap-6 flex-1 min-h-0">
           <div className="w-2/3 flex flex-col min-h-0">
@@ -168,8 +204,8 @@ export default function CalendarPage() {
                 return (
                   <div>
                     <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
-                      {weekdayLetters.map((w) => (
-                        <div key={w} className="py-1">
+                      {weekdayLetters.map((w, i) => (
+                        <div key={`${w}-${i}`} className="py-1">
                           {w}
                         </div>
                       ))}
@@ -179,16 +215,21 @@ export default function CalendarPage() {
                       {weeks.flat().map((day, idx) => {
                         const isCurrentMonth = day.getMonth() === displayMonth.getMonth();
                         const dayStr = formatDateLocal(day);
-                        const has = events.some((ev: any) => ev && ev.status === "approved" && ev.date === dayStr);
+                        const eventsForDay = events.filter((ev) => ev && ev.date === dayStr && ev.status !== 'rejected');
                         const isSelected = selected && formatDateLocal(selected) === dayStr;
                         return (
                           <button
                             key={dayStr + "-" + idx}
                             onClick={() => setSelected(new Date(day))}
-                            className={`relative p-2 flex items-center justify-center h-12 ${isCurrentMonth ? "bg-white" : "bg-gray-50 text-gray-400"} ${isSelected ? "ring-2 ring-blue-500 rounded-full" : ""}`}
+                            className={`relative p-2 h-14 flex flex-col items-start overflow-hidden ${isCurrentMonth ? "bg-white" : "bg-gray-50 text-gray-400"} ${isSelected ? "ring-2 ring-blue-500 rounded-md" : ""}`}
                           >
-                            <div className="text-sm">{day.getDate()}</div>
-                            {has && <span className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-green-600 rounded-full" />}
+                            <div className="w-full flex items-start justify-between">
+                              <div className="text-sm font-medium">{day.getDate()}</div>
+                            </div>
+                            {/* event indicator (small blue circle) */}
+                            {eventsForDay.length > 0 && (
+                              <div className="absolute bottom-1 right-1 w-3 h-3 bg-blue-500 rounded-full" />
+                            )}
                           </button>
                         );
                       })}
@@ -203,22 +244,34 @@ export default function CalendarPage() {
             <div className="bg-white p-6 rounded-2xl shadow flex-1 overflow-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Events</h3>
-                <div className="text-sm text-gray-500">{selected ? selected.toLocaleDateString() : ""}</div>
+                <div className="flex items-center gap-3">
+                  {loading && <div className="text-sm text-gray-500">Loading…</div>}
+                  {error && <div className="text-sm text-red-500">Error fetching events</div>}
+                  <div className="text-sm text-gray-500">{selected ? selected.toLocaleDateString() : ""}</div>
+                </div>
               </div>
 
               <div>
                 {selected ? (
                   (() => {
                     const dayStr = formatDateLocal(selected as Date);
-                    const list = events.filter((e) => e.status === "approved" && e.date === dayStr);
-                    if (list.length === 0) return <div className="text-sm text-gray-500">No approved events for this date.</div>;
+                    const list = events.filter((e) => e.date === dayStr);
+                    if (list.length === 0) return <div className="text-sm text-gray-500">No events for this date.</div>;
                     return (
                       <div className="space-y-3">
                         {list.map((e) => (
                           <div key={e.id} className="p-3 border border-gray-100 rounded-md">
-                            <div className="font-medium">{e.title || "Untitled"}</div>
-                            <div className="text-xs text-gray-500">{e.startHour} - {e.endHour} · {e.location}</div>
-                            <div className="text-sm text-gray-700 mt-2">{e.notes}</div>
+                            <div className="flex justify-between items-center">
+                              <div className="font-medium">{e.title || e.course_name || `Event ${e.id}`}</div>
+                              <div className="text-xs text-gray-500">{fmtTime(e.start_time)} - {fmtTime(e.end_time)}</div>
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">
+                              {e.course_name && <span>{e.course_name}</span>}
+                              {e.room_name && <span className="ml-2">· {e.room_name}</span>}
+                              {e.tutor_name && <span className="ml-2">· {e.tutor_name}</span>}
+                              {e.status && <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-100">{e.status}</span>}
+                            </div>
+                            <div className="text-sm text-gray-700 mt-2">{e.event_type || ''}</div>
                           </div>
                         ))}
                       </div>
