@@ -37,10 +37,20 @@ type SignInFormValues = z.infer<typeof signInSchema>;
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
 import { useNavigate } from "react-router-dom";
-import { saveLocalProfile } from "@/lib/profileService";
+import { saveLocalProfile, getProfile } from "@/lib/profileService";
+
+// API base (use Vite env var in development or default to local Django)
+const API = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
 export default function Index() {
   const navigate = useNavigate();
+  // if already authenticated, redirect to profile
+  (async () => {
+    try {
+      const p = await getProfile();
+      if (p) navigate('/profile');
+    } catch {}
+  })();
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +74,7 @@ export default function Index() {
   const handleSignIn = async (values: SignInFormValues) => {
     setIsLoading(true);
     try {
-      const response = await fetch("/users/token/", {
+      const response = await fetch(`${API}/users/token/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,21 +86,14 @@ export default function Index() {
       });
 
       if (!response.ok) {
-        // Backend unavailable or invalid credentials — fallback to frontend-only mode
-        const fallbackProfile = {
-          username: values.email.split("@")[0] || values.email,
-          email: values.email,
-          role: "User",
-        };
-
-        // store mock tokens so Profile page attempts API then falls back to local
-        localStorage.setItem("accessToken", "frontend-only-token");
-        localStorage.setItem("refreshToken", "frontend-only-refresh");
-        saveLocalProfile(fallbackProfile);
-
-        toast.success("Signed in (frontend-only mode)");
-        navigate("/profile");
-        form.reset();
+        // Invalid credentials or backend error — require valid backend auth
+        let errMsg = "Invalid credentials";
+        try {
+          const err = await response.json();
+          errMsg = err.detail || err.error || JSON.stringify(err);
+        } catch {}
+        toast.error(`Sign in failed: ${errMsg}`);
+        setIsLoading(false);
         return;
       }
 
@@ -100,7 +103,7 @@ export default function Index() {
 
       // attempt to fetch profile from API response if available
       try {
-        const profileRes = await fetch("/users/my-profile/", {
+        const profileRes = await fetch(`${API}/users/my-profile/`, {
           headers: { Authorization: `Bearer ${data.access}` },
         });
         if (profileRes.ok) {
@@ -113,18 +116,8 @@ export default function Index() {
       navigate("/profile");
       form.reset();
     } catch (error) {
-      // network error -> fallback to frontend-only signin
-      const fallbackProfile = {
-        username: values.email.split("@")[0] || values.email,
-        email: values.email,
-        role: "User",
-      };
-      localStorage.setItem("accessToken", "frontend-only-token");
-      localStorage.setItem("refreshToken", "frontend-only-refresh");
-      saveLocalProfile(fallbackProfile);
-      toast.success("Signed in (frontend-only mode)");
-      navigate("/profile");
-      form.reset();
+      console.error("SignIn error:", error);
+      toast.error("Network error during sign in. Please try again.");
     } finally {
       setIsLoading(false);
     }

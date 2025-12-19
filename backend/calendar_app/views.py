@@ -20,12 +20,28 @@ def _parse_time(t: str):
         return None
 
 
+def _require_role_or_404(request, allowed_roles):
+    try:
+        role = getattr(request.user, "role", None)
+    except Exception:
+        role = None
+    if role not in allowed_roles:
+        logger.warning(f"Unauthorized role access attempt by user={getattr(request.user, 'id', None)} role={role} allowed={allowed_roles}")
+        return Response({"detail": "Not found."}, status=404)
+    return None
+
+
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def create_event(request):
     data = request.data.copy()
     user_info = request.user if hasattr(request, 'user') and request.user and getattr(request.user, 'is_authenticated', False) else 'anonymous'
     logger.info(f"create_event called by {user_info}; payload={data}")
+    # Permission: only academic assistants and administrators may create events
+    res = _require_role_or_404(request, ("academic_assistant", "administrator"))
+    if res:
+        return res
+
     # resolve course
     course_val = data.get("course")
     if course_val is None:
@@ -139,7 +155,45 @@ def create_event(request):
         logger.warning(f"ScheduledEvent serializer errors: {serializer.errors}")
         return Response(serializer.errors, status=400)
 
-# 2. AA - Edit Event (only pending)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def approve_event(request, event_id):
+    try:
+        event = ScheduledEvent.objects.get(id=event_id)
+    except ScheduledEvent.DoesNotExist:
+        return Response({"error": "Event not found"}, status=404)
+
+    # Only department academic assistants and administrators can approve
+    res = _require_role_or_404(request, ("department_assistant", "administrator"))
+    if res:
+        return res
+
+    event.status = "approved"
+    event.save()
+
+    return Response({"message": "Event approved"})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reject_event(request, event_id):
+    try:
+        event = ScheduledEvent.objects.get(id=event_id)
+    except ScheduledEvent.DoesNotExist:
+        return Response({"error": "Event not found"}, status=404)
+
+    # Only department academic assistants and administrators can reject
+    res = _require_role_or_404(request, ("department_assistant", "administrator"))
+    if res:
+        return res
+
+    event.status = "rejected"
+    event.save()
+
+    return Response({"message": "Event rejected"})
+
+
+# 2. AA / Owner - Edit or cancel pending event
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def edit_event(request, event_id):
@@ -149,56 +203,27 @@ def edit_event(request, event_id):
         return Response({"error": "Event not found"}, status=404)
 
     if event.status != "pending":
-        return Response({"error": "Only pending events can be edited"}, status=400)
+        return Response({"error": "Only pending events can be edited or cancelled"}, status=400)
 
+    # Only academic assistants and administrators can edit pending events
+    res = _require_role_or_404(request, ("academic_assistant", "administrator"))
+    if res:
+        return res
+
+    data = request.data.copy() if isinstance(request.data, dict) else dict(request.data)
+    action = data.pop("action", None)
+    if action == "cancel":
+        # allow creator or AA/admin (checked above)
+        event.status = "cancelled"
+        event.save()
+        return Response({"message": "Event cancelled"})
+
+    # perform partial update; serializer protects read-only fields (status)
     serializer = ScheduledEventSerializer(event, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
     return Response(serializer.errors, status=400)
-
-# 3. DAA - Approve Event
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def approve_event(request, event_id):
-    try:
-        event = ScheduledEvent.objects.get(id=event_id)
-    except ScheduledEvent.DoesNotExist:
-        return Response({"error": "Event not found"}, status=404)
-
-    event.status = "approved"
-    event.save()
-
-    return Response({"message": "Event approved"})
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def approved_events(request):
-    events = ScheduledEvent.objects.filter(status="approved")
-    serializer = ScheduledEventSerializer(events, many=True)
-    return Response(serializer.data)
-
-# 4. DAA - Reject Event
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def reject_event(request, event_id):
-    try:
-        event = ScheduledEvent.objects.get(id=event_id)
-    except ScheduledEvent.DoesNotExist:
-        return Response({"error": "Event not found"}, status=404)
-
-    event.status = "rejected"
-    event.save()
-
-    return Response({"message": "Event rejected"})
-
-# 5. Lecturer - get assigned events
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def tutor_events(request):
-    events = ScheduledEvent.objects.filter(tutor=request.user)
-    serializer = ScheduledEventSerializer(events, many=True)
-    return Response(serializer.data)
 
 
 # Public endpoints used by frontend

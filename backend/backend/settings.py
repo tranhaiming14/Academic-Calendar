@@ -162,4 +162,14 @@ SIMPLE_JWT = {
 }
 
 # Development convenience: allow frontend dev server to call API
-CORS_ALLOW_ALL_ORIGINS = True
+# Restrict CORS to known frontend origins for safer development
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# If you serve the frontend from Django in production, set
+# CORS_ALLOWED_ORIGINS to your production host(s) instead.

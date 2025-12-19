@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getLocalProfile } from "@/lib/profileService";
 import { Button } from "@/components/ui/button";
 import { CalendarIcon, Bell, ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -184,9 +185,12 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       status: "pending",
     };
     try {
+      const token = localStorage.getItem("accessToken");
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/calendar/create_event/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -348,24 +352,36 @@ export default function CreateEvents() {
 
           <div className={`mt-4 flex-1 flex flex-col gap-4 transition-all duration-300 transform ${sidebarCollapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0'}`}>
             <nav className="flex flex-col gap-1 px-1">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Schedule
-              </h3>
-              <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
-                <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
-              </Button>
-              <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Event
-              </Button>
-              <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Approve Events
-              </Button>
+              {(() => {
+                const profile = getLocalProfile();
+                const role = profile?.role;
+                const showCreate = role === "academic_assistant" || role === "administrator";
+                const showApprove = role === "department_assistant" || role === "administrator";
+                return (
+                  <>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule</h3>
+                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
+                      <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
+                    </Button>
+                    {showCreate && (
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create Event
+                      </Button>
+                    )}
+                    {showApprove && (
+                      <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Approve Events
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
               <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white">
                 <Bell className="mr-2 h-4 w-4" /> Reminders
               </Button>

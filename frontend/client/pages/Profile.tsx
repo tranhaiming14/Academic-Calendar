@@ -6,20 +6,23 @@ import { CalendarIcon, Bell, Mail, Shield, ChevronLeft, ChevronRight } from "luc
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatDateLocal } from "@/lib/utils";
-import { getProfile } from "@/lib/profileService";
+import { getProfile, updateProfile, clearLocalProfile, getLocalProfile } from "@/lib/profileService";
 // calendar grid is implemented inline to keep frontend-only behavior
 import CreateEvents from "./CreateEvents";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 
 export default function Profile() {
     
-    const [user, setUser] = useState<{ username: string; email: string; role: string } | null>(null);
+    const [user, setUser] = useState<{ username: string; email: string; role: string; contactNumber?: string } | null>(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [viewMode, setViewMode] = useState<"profile" | "calendar" | "create" | "approve">("profile");
     const navigate = useNavigate();
     const [selected, setSelected] = useState<Date | undefined>(undefined);
     const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
     const [events, setEvents] = useState<Array<any>>([]);
+    const [editMode, setEditMode] = useState(false);
+    const [editUsername, setEditUsername] = useState("");
+    const [editContact, setEditContact] = useState("");
 
     // generate a 6x7 matrix of Date objects covering the calendar view
     const getMonthMatrix = (date: Date) => {
@@ -69,6 +72,39 @@ export default function Profile() {
         };
         load();
     }, []);
+
+    const handleEdit = () => {
+        if (!user) return;
+        setEditUsername(user.username);
+        setEditContact(user.contactNumber || "");
+        setEditMode(true);
+    };
+
+    const handleCancel = () => {
+        setEditMode(false);
+    };
+
+    const handleSave = async () => {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+            clearLocalProfile();
+            navigate('/auth/login');
+            return;
+        }
+        try {
+            const updated = await updateProfile(token, { username: editUsername, contactNumber: editContact || undefined });
+            setUser(updated);
+            setEditMode(false);
+        } catch (err) {
+            console.error(err);
+            // on error, keep edit mode so user can retry
+        }
+    };
+
+    const handleLogout = () => {
+        clearLocalProfile();
+        try { navigate('/auth/login'); } catch (err) { /* ignore */ }
+    };
 
     useEffect(() => {
         if (viewMode === 'calendar') {
@@ -127,29 +163,39 @@ export default function Profile() {
                     </div>
 
                     <div className={`mt-4 flex-1 flex flex-col gap-4 transition-all duration-300 transform ${sidebarCollapsed ? 'opacity-0 -translate-x-2 pointer-events-none' : 'opacity-100 translate-x-0'}`}>
-                        <nav className="flex flex-col gap-1 px-1">
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                                Schedule
-                            </h3>
-                            <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
-                            </Button>
-                            <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                </svg>
-                                Create Event
-                            </Button>
-                            <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                Approve Events
-                            </Button>
-                            <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white">
-                                <Bell className="mr-2 h-4 w-4" /> Reminders
-                            </Button>
-                        </nav>
+                        {(() => {
+                            const profile = getLocalProfile();
+                            const role = profile?.role;
+                            const showCreate = role === "academic_assistant" || role === "administrator";
+                            const showApprove = role === "department_assistant" || role === "administrator";
+                            return (
+                                <nav className="flex flex-col gap-1 px-1">
+                                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Schedule</h3>
+                                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/calendar')}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" /> Calendar
+                                    </Button>
+                                    {showCreate && (
+                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/create') }>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Create Event
+                                        </Button>
+                                    )}
+                                    {showApprove && (
+                                        <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white" onClick={() => navigate('/approve') }>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.707a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                            Approve Events
+                                        </Button>
+                                    )}
+                                    <Button variant="ghost" className="justify-start font-medium transition-colors duration-200 rounded-md hover:bg-black hover:text-white">
+                                        <Bell className="mr-2 h-4 w-4" /> Reminders
+                                    </Button>
+                                </nav>
+                            );
+                        })()}
 
                         {/* Mini Calendar Widget Placeholder */}
                         <div className="mt-auto bg-gray-50 p-4 rounded-xl border border-gray-100 px-1">
@@ -194,14 +240,22 @@ export default function Profile() {
                             <div className="mt-12 text-center space-y-4">
                                 {/* Username */}
                                 <div>
-                                    <h1 className="text-3xl font-bold text-gray-900">{user.username}</h1>
-                                    {/* Role */}
-                                    <div className="mt-2">
-                                        <Badge variant="secondary" className="px-3 py-1 text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors uppercase">
-                                            <Shield className="w-3 h-3 mr-1 inline" />
-                                            {user.role}
-                                        </Badge>
-                                    </div>
+                                    {editMode ? (
+                                        <div className="space-y-2">
+                                            <input value={editUsername} onChange={(e) => setEditUsername(e.target.value)} className="w-72 mx-auto block px-3 py-2 border rounded-md" />
+                                            <input value={editContact} onChange={(e) => setEditContact(e.target.value)} placeholder="Contact number" className="w-72 mx-auto block px-3 py-2 border rounded-md" />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <h1 className="text-3xl font-bold text-gray-900">{user.username}</h1>
+                                            <div className="mt-2">
+                                                <Badge variant="secondary" className="px-3 py-1 text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors uppercase">
+                                                    <Shield className="w-3 h-3 mr-1 inline" />
+                                                    {user.role}
+                                                </Badge>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Email */}
@@ -211,8 +265,18 @@ export default function Profile() {
                                 </div>
                                 {/* Action buttons */}
                                 <div className="mt-4 flex items-center justify-center gap-3">
-                                    <Button variant="default" className="px-4 py-2" onClick={() => navigate('/edit-profile')}>Edit Profile</Button>
-                                    <Button variant="outline" className="px-4 py-2">Export</Button>
+                                    {!editMode ? (
+                                        <>
+                                            <Button variant="default" className="px-4 py-2" onClick={handleEdit}>Edit</Button>
+                                            <Button variant="outline" className="px-4 py-2" onClick={handleLogout}>Logout</Button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button variant="default" className="px-4 py-2" onClick={handleSave}>Save</Button>
+                                            <Button variant="ghost" className="px-4 py-2" onClick={handleCancel}>Cancel</Button>
+                                            <Button variant="outline" className="px-4 py-2" onClick={handleLogout}>Logout</Button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </CardContent>
