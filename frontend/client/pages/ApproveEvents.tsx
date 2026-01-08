@@ -45,10 +45,12 @@ export default function ApproveEvents() {
   }, []);
 
   const updateStatus = async (id: number, status: string) => {
+    console.debug("updateStatus called", { id, status });
     const token = localStorage.getItem("accessToken");
     const event = events.find(e => e.id === id);
     // optimistic local update
-    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, status } : e)));
+    const newArr = events.map((e) => (e.id === id ? { ...e, status } : e));
+    setEvents(newArr);
     try {
       if (!token) throw new Error("No auth token");
       const res = await fetch(`${API_BASE}/api/calendar/${status === 'approved' ? 'approve' : 'reject'}/${id}/`, {
@@ -58,27 +60,22 @@ export default function ApproveEvents() {
         },
       });
       if (!res.ok) {
+        const txt = await res.text().catch(() => null);
+        console.warn("approve/reject request failed", { status: res.status, statusText: res.statusText, body: txt });
         throw new Error(`${res.status} ${res.statusText}`);
       }
-      // refresh list from server
-      const fresh = await fetch(`${API_BASE}/api/calendar/scheduledevents/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (fresh.ok) {
-        const d = await fresh.json();
-        const arr = Array.isArray(d) ? d : (d.results || []);
-        setEvents(arr);
-        try { window.dispatchEvent(new Event("events:changed")); } catch { }
-      }
+      // on success, persist the optimistic update to localStorage so other listeners don't overwrite
+      try {
+        localStorage.setItem("events", JSON.stringify(newArr));
+      } catch {}
+      try { window.dispatchEvent(new Event("events:changed")); } catch { }
     } catch (err) {
       console.error("Failed to update status on server, falling back to localStorage:", err);
-      // fallback: persist to localStorage
+      // fallback: persist to localStorage but preserve in-memory events if localStorage empty
       const raw = localStorage.getItem("events");
-      const arr = raw ? JSON.parse(raw) : [];
-      const newArr = arr.map((e: any) => (e.id === id ? { ...e, status } : e));
-      localStorage.setItem("events", JSON.stringify(newArr));
+      const arr = raw ? JSON.parse(raw) : events;
+      const newArr = arr.map((ev: any) => (ev.id === id ? { ...ev, status } : ev));
+      try { localStorage.setItem("events", JSON.stringify(newArr)); } catch { }
       setEvents(newArr);
       try { window.dispatchEvent(new Event("events:changed")); } catch { }
     }
@@ -139,10 +136,10 @@ export default function ApproveEvents() {
                       <div className="flex flex-col items-end gap-3">
                         <div className="text-sm text-gray-500">Requested</div>
                         <div className="flex items-center gap-2">
-                          <button aria-label="Reject" title="Reject" onClick={() => updateStatus(e.id, 'rejected')} className="inline-flex items-center justify-center w-9 h-9 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition">
+                          <button type="button" aria-label="Reject" title="Reject" onClick={(ev) => { ev.preventDefault(); updateStatus(e.id, 'rejected'); }} className="inline-flex items-center justify-center w-9 h-9 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition">
                             <X className="w-4 h-4" />
                           </button>
-                          <button aria-label="Approve" title="Approve" onClick={() => updateStatus(e.id, 'approved')} className="inline-flex items-center justify-center w-9 h-9 bg-green-50 text-green-600 rounded-full hover:bg-green-100 transition">
+                          <button type="button" aria-label="Approve" title="Approve" onClick={(ev) => { ev.preventDefault(); updateStatus(e.id, 'approved'); }} className="inline-flex items-center justify-center w-9 h-9 bg-green-50 text-green-600 rounded-full hover:bg-green-100 transition">
                             <Check className="w-4 h-4" />
                           </button>
                         </div>
