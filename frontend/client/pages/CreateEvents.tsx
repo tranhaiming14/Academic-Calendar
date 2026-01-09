@@ -48,11 +48,10 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
 
   const formatTime = (t: string) => t;
 
-  // Fetch courses and ALL tutors on load
+  // Fetch courses on load
   useEffect(() => {
     let mounted = true;
 
-    // Courses
     fetch(`${API_BASE}/api/calendar/courses/`)
       .then((r) => r.json())
       .then((data) => {
@@ -61,23 +60,29 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       })
       .catch((err) => console.error("Failed to fetch courses", err));
 
-    // Tutors (ALL)
-    fetch(`${API_BASE}/api/calendar/tutors/`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!mounted) return;
-        setTutorsList(data);
-      })
-      .catch((err) => console.error("Failed to fetch tutors", err));
-
     return () => { mounted = false };
   }, []);
 
-  // Previously fetched tutors when course changed. Now we fetch all on mount.
-  // We can keep this empty or remove it.
+  // Fetch tutors for the selected course
   useEffect(() => {
-    // optional: filter tutors if course is selected? User wanted ALL tutors visible.
-    // So we do nothing here.
+    if (!course) {
+      setTutorsList([]);
+      return;
+    }
+
+    let mounted = true;
+    fetch(`${API_BASE}/api/calendar/courses/${course}/tutors/`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!mounted) return;
+        setTutorsList(Array.isArray(data) ? data : (data.results || []));
+      })
+      .catch((err) => {
+        console.error("Failed to fetch tutors for course", err);
+        setTutorsList([]);
+      });
+
+    return () => { mounted = false };
   }, [course]);
 
   // Debug: log tutorsList updates (count only)
@@ -249,6 +254,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
           <select
             value={tutor}
             onChange={(e) => { console.log('tutor select onChange raw value:', e.target.value); setTutor(String(e.target.value)); }}
+            disabled={!course}
             className="mt-1 block w-full rounded-md border border-gray-200 shadow-sm px-3 py-2"
           >
             <option value="" disabled>Select Tutor...</option>

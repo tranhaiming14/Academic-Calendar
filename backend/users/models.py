@@ -45,7 +45,7 @@ class StudentProfile(models.Model):
     def save(self, *args, **kwargs):
         if not self.user_id:  # If no user assigned yet
             # Username should be the student's name and email the student's email
-            username = self.name
+            username = self.email
 
             # Password: DOB in ddmmyy format + student_id
             try:

@@ -39,6 +39,8 @@ type EventItem = {
 
 export default function CalendarPage() {
   const navigate = useNavigate();
+  const profile = getLocalProfile();
+  const isStudent = profile?.role === "student";
   const [displayMonth, setDisplayMonth] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month');
   const [weekStart, setWeekStart] = useState<Date>(() => {
@@ -52,6 +54,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [selectedLecturer, setSelectedLecturer] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,12 +62,6 @@ export default function CalendarPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportStart, setExportStart] = useState("");
   const [exportEnd, setExportEnd] = useState("");
-
-  // Time Filter state
-  const [filterStartHour, setFilterStartHour] = useState("");
-  const [filterStartMin, setFilterStartMin] = useState("");
-  const [filterEndHour, setFilterEndHour] = useState("");
-  const [filterEndMin, setFilterEndMin] = useState("");
 
 
   // Set default export dates when opening (start/end of current month)
@@ -81,44 +78,11 @@ export default function CalendarPage() {
   // Derived lists and filtered events
   const lecturers: string[] = Array.from(new Set(events.map((e) => e.tutor_name).filter((x): x is string => !!x)));
   const courses: string[] = Array.from(new Set(events.map((e) => e.course_name).filter((x): x is string => !!x)));
+  const eventTypes: string[] = Array.from(new Set(events.map((e) => e.event_type).filter((x): x is string => !!x)));
   const filteredEvents = events.filter((e) => {
     if (selectedLecturer && e.tutor_name !== selectedLecturer) return false;
     if (selectedCourse && e.course_name !== selectedCourse) return false;
-
-    // Time Filter Logic
-    if (filterStartHour || filterEndHour) { // Only filter if at least one hour is specified
-      const parseTime = (t: string | undefined): number => {
-        if (!t) return 0;
-        const [hh, mm] = t.split(':').map(x => parseInt(x, 10));
-        return (hh * 60) + (mm || 0);
-      };
-      const eventStart = parseTime(e.start_time);
-      const eventEnd = parseTime(e.end_time || e.start_time); // fallback if end is missing? usually required.
-
-      // Determine Filter Range
-      let fStart = 0;   // default 00:00
-      let fEnd = 1439;  // default 23:59 (24*60 - 1)
-
-      if (filterStartHour) {
-        const h = parseInt(filterStartHour, 10) || 0;
-        const m = parseInt(filterStartMin, 10) || 0;
-        fStart = h * 60 + m;
-      }
-
-      if (filterEndHour) {
-        const h = parseInt(filterEndHour, 10) || 0;
-        const m = parseInt(filterEndMin, 10) || 0;
-        fEnd = h * 60 + m;
-      }
-
-      // Logic: Event START is in range OR Event END is in range
-      // "Show events that either ends in the period or starts in the period"
-      const startInRange = eventStart >= fStart && eventStart <= fEnd;
-      const endInRange = eventEnd >= fStart && eventEnd <= fEnd;
-
-      if (!startInRange && !endInRange) return false;
-    }
-
+    if (selectedEventType && e.event_type !== selectedEventType) return false;
     return true;
   });
 
@@ -285,91 +249,6 @@ export default function CalendarPage() {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
-                <Select value={selectedLecturer ?? "__all__"} onValueChange={(v) => setSelectedLecturer(v === "__all__" ? null : v)}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="All Lecturers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Lecturers</SelectItem>
-                    {lecturers.map((l) => (
-                      <SelectItem key={l} value={l}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={selectedCourse ?? "__all__"} onValueChange={(v) => setSelectedCourse(v === "__all__" ? null : v)}>
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue placeholder="All Courses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">All Courses</SelectItem>
-                    {courses.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Time Filter Inputs */}
-                <div className="flex items-center gap-2 bg-white p-1 rounded-md border border-gray-200 shadow-sm ml-2">
-                  <span className="text-xs font-medium text-gray-500 px-1">Time:</span>
-                  <div className="flex items-center">
-                    <Input
-                      className="w-12 h-8 text-center p-1"
-                      placeholder="HH"
-                      maxLength={2}
-                      value={filterStartHour}
-                      onChange={e => setFilterStartHour(e.target.value)}
-                    />
-                    <span className="mx-1">:</span>
-                    <Input
-                      className="w-12 h-8 text-center p-1"
-                      placeholder="MM"
-                      maxLength={2}
-                      value={filterStartMin}
-                      onChange={e => setFilterStartMin(e.target.value)}
-                    />
-                  </div>
-                  <span className="text-gray-400">-</span>
-                  <div className="flex items-center">
-                    <Input
-                      className="w-12 h-8 text-center p-1"
-                      placeholder="HH"
-                      maxLength={2}
-                      value={filterEndHour}
-                      onChange={e => setFilterEndHour(e.target.value)}
-                    />
-                    <span className="mx-1">:</span>
-                    <Input
-                      className="w-12 h-8 text-center p-1"
-                      placeholder="MM"
-                      maxLength={2}
-                      value={filterEndMin}
-                      onChange={e => setFilterEndMin(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
-
-                  if (value === 'month') {
-                    setViewMode('month');
-                  } else {
-                    setViewMode('week');
-                    const now = new Date();
-                    const s = new Date(now);
-                    s.setDate(now.getDate() - now.getDay());
-                    s.setHours(0, 0, 0, 0);
-                    setWeekStart(s);
-                  }
-                }}>
-                  <SelectTrigger className="w-[100px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="month">Month</SelectItem>
-                    <SelectItem value="week">Week</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Dialog open={exportOpen} onOpenChange={setExportOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -414,6 +293,82 @@ export default function CalendarPage() {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+              </div>
+            </div>
+
+            {/* Filters: View Mode, Lecturer (staff only), Course */}
+            <div className="mb-4 px-2">
+              <div className="bg-white p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium text-gray-700">View</div>
+                  <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
+                    if (value === 'month') {
+                      setViewMode('month');
+                    } else {
+                      setViewMode('week');
+                      const now = new Date();
+                      const s = new Date(now);
+                      s.setDate(now.getDate() - now.getDay());
+                      s.setHours(0, 0, 0, 0);
+                      setWeekStart(s);
+                    }
+                  }}>
+                    <SelectTrigger className="w-[100px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="month">Month</SelectItem>
+                      <SelectItem value="week">Week</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {!isStudent && (
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-700">Lecturer</div>
+                    <Select value={selectedLecturer ?? '__all__'} onValueChange={(v: string) => setSelectedLecturer(v === '__all__' ? null : v)}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All</SelectItem>
+                        {lecturers.map((l) => (
+                          <SelectItem key={l} value={l}>{l}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium text-gray-700">Course</div>
+                  <Select value={selectedCourse ?? '__all__'} onValueChange={(v: string) => setSelectedCourse(v === '__all__' ? null : v)}>
+                    <SelectTrigger className="w-[220px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All</SelectItem>
+                      {courses.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium text-gray-700">Event Type</div>
+                  <Select value={selectedEventType ?? '__all__'} onValueChange={(v: string) => setSelectedEventType(v === '__all__' ? null : v)}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">All</SelectItem>
+                      {eventTypes.map((et) => (
+                        <SelectItem key={et} value={et}>{et.charAt(0).toUpperCase() + et.slice(1)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -544,7 +499,7 @@ export default function CalendarPage() {
                                         {ev.tutor_name && <div className="text-[11px] leading-tight">Instructor: {ev.tutor_name}</div>}
                                         {ev.room_name && <div className="text-[11px] leading-tight">Room: {ev.room_name}</div>}
                                         {ev.notes && <div className="text-[11px] truncate">{ev.notes}</div>}
-                                        {ev.status && <div className="mt-1 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/20">{ev.status}</div>}
+                                        {ev.status && !['approved','rejected'].includes(String(ev.status).toLowerCase()) && <div className="mt-1 inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/20">{ev.status}</div>}
                                       </div>
                                     );
                                   })}
@@ -608,7 +563,7 @@ export default function CalendarPage() {
                               </div>
                               {e.tutor_name && <div className="text-sm text-gray-600">Lecturer: {e.tutor_name}</div>}
                               {e.room_name && <div className="text-xs text-gray-500 mt-2">Room: {e.room_name}</div>}
-                              {e.status && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
+                              {e.status && !['approved','rejected'].includes(String(e.status).toLowerCase()) && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
                             </div>
                           ))}
                         </div>

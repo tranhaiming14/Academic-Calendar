@@ -57,7 +57,7 @@ export default function Sidebar() {
   const getButtonClassName = (path: string) => {
     const isActive = location.pathname === path;
     const baseClass = "font-medium transition-colors duration-200 rounded-md";
-    const activeClass = isActive ? "bg-gray-900 text-white hover:bg-gray-800" : "hover:bg-gray-200";
+    const activeClass = isActive ? "bg-gray-900 text-white hover:bg-gray-800 hover:text-white" : "hover:bg-gray-200";
     return `${baseClass} ${activeClass}`;
   };
 
@@ -65,7 +65,7 @@ export default function Sidebar() {
   const getCollapsedButtonClassName = (path: string) => {
     const isActive = location.pathname === path;
     const baseClass = "p-2 transition-colors duration-200 rounded-md flex items-center justify-center";
-    const activeClass = isActive ? "bg-gray-900 text-white hover:bg-gray-800" : "hover:bg-gray-200";
+    const activeClass = isActive ? "bg-gray-900 text-white hover:bg-gray-800 hover:text-white" : "hover:bg-gray-200";
     return `${baseClass} ${activeClass}`;
   };
 
@@ -184,18 +184,13 @@ export default function Sidebar() {
                   {managementOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </Button>
                 <div className={`w-full mt-1 overflow-hidden transition-all duration-200 ease-in-out ${managementOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`} aria-hidden={!managementOpen}>
-                  <div className="w-full flex flex-col gap-1">
+                  <div className="w-full flex flex-col gap-1 pl-4">
                     <Button
                       variant="ghost"
                       className={`w-full justify-start ${getButtonClassName("/import-students")}`}
                       onClick={() => navigate("/import-students")}
                       title="Import Students"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                        <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                      </svg>
                       Import Students
                     </Button>
                     <Button
@@ -204,9 +199,6 @@ export default function Sidebar() {
                       onClick={() => navigate("/students")}
                       title="Student Management"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
-                      </svg>
                       Student Management
                     </Button>
                   </div>
