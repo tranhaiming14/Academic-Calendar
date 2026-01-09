@@ -151,6 +151,16 @@ export default function CalendarPage() {
     try { return t.toString().slice(0, 5); } catch { return String(t); }
   };
 
+  const colorForType = (t?: string) => {
+    const def = { dot: 'bg-blue-500', block: 'bg-blue-600 text-white' };
+    if (!t) return def;
+    const s = t.toLowerCase();
+    if (s.includes('exam')) return { dot: 'bg-red-500', block: 'bg-red-600 text-white' };
+    if (s.includes('lab')) return { dot: 'bg-yellow-400', block: 'bg-yellow-300 text-black' };
+    // default = normal lecture
+    return def;
+  };
+
   useEffect(() => {
     let mounted = true;
     const fetchEvents = async (): Promise<void> => {
@@ -202,7 +212,7 @@ export default function CalendarPage() {
       <Sidebar />
       <main className="flex-1 flex flex-col">
         <div className="flex gap-6 flex-1 min-h-0">
-          <div className={`${viewMode === 'week' ? 'w-full' : 'w-2/3'} flex flex-col min-h-0`}>
+          <div className={`${viewMode === 'week' ? 'w-full' : 'w-2/3'} flex flex-col min-h-0 ${loading ? 'relative' : ''}`}>
             <div className="flex items-center justify-between mb-4 px-2">
               <div className="flex items-center gap-4">
                 {viewMode === 'month' ? (
@@ -324,6 +334,14 @@ export default function CalendarPage() {
             </div>
 
             <div className="bg-white p-6 rounded-2xl shadow flex-1 min-h-0 overflow-auto">
+              {loading && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/40 backdrop-blur-sm">
+                  <div className="flex flex-col items-center">
+                    <div role="status" aria-label="Loading events" className="w-12 h-12 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+                    <div className="mt-3 text-sm text-gray-700">Loading events…</div>
+                  </div>
+                </div>
+              )}
               <div className="mb-4">
                 <div className="text-sm text-gray-700">&nbsp;</div>
               </div>
@@ -357,9 +375,14 @@ export default function CalendarPage() {
                               <div className="w-full flex items-start justify-between">
                                 <div className="text-sm font-medium">{day.getDate()}</div>
                               </div>
-                              {/* event indicator (small blue circle) */}
+                              {/* event indicators by type (small colored dots) */}
                               {eventsForDay.length > 0 && (
-                                <div className="absolute bottom-1 right-1 w-3 h-3 bg-blue-500 rounded-full" />
+                                <div className="absolute bottom-1 right-1 flex items-center gap-1">
+                                  {Array.from(new Set(eventsForDay.map(ev => (ev.event_type || 'lecture').toLowerCase()))).slice(0,3).map((typ) => {
+                                    const cls = colorForType(typ).dot;
+                                    return <span key={typ} className={`${cls} w-3 h-3 rounded-full`} />;
+                                  })}
+                                </div>
                               )}
                             </button>
                           );
@@ -428,8 +451,9 @@ export default function CalendarPage() {
                                     const duration = Math.max(15, evEnd - evStart);
                                     const top = topMinutes * pxPerMinute;
                                     const height = duration * pxPerMinute;
+                                    const colorCls = colorForType(ev.event_type).block;
                                     return (
-                                      <div key={ev.id} className="absolute left-1 right-1 bg-blue-600 text-white rounded-md p-2 text-[12px] shadow overflow-hidden" style={{ top: top, height: height }}>
+                                      <div key={ev.id} className={`${colorCls} absolute left-1 right-1 rounded-md p-2 text-[12px] shadow overflow-hidden`} style={{ top: top, height: height }}>
                                         <div className="font-semibold text-sm leading-tight truncate">{ev.title || ev.course_name || `Event ${ev.id}`}</div>
                                         <div className="text-[11px] leading-tight">{fmtTime(ev.start_time)} - {fmtTime(ev.end_time)}</div>
                                         {ev.course_name && <div className="text-[11px] leading-tight">{ev.course_name}{ev.event_type ? ` • ${ev.event_type}` : ''}</div>}

@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView, RedirectView
+from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -36,3 +37,10 @@ urlpatterns = [
     # page immediately when visiting the site (frontend-only view).
     path("", RedirectView.as_view(url="/profile")),
 ]
+if settings.DEBUG:
+    try:
+        import debug_toolbar  # type: ignore
+        urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns
+    except Exception:
+        # debug_toolbar not installed; ignore in non-dev environments
+        pass

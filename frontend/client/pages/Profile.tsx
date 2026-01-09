@@ -129,9 +129,7 @@ export default function Profile() {
         } catch (err) { /* ignore */ }
     };
 
-    if (!user) {
-        return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-    }
+    const isLoading = !user;
 
     return (
         <div className="flex min-h-screen bg-gray-50 font-sans text-gray-900">
@@ -140,7 +138,14 @@ export default function Profile() {
 
             {/* Main Content */}
             <main className="flex-1 p-0 flex flex-col items-stretch min-h-0">
-                {viewMode === "profile" ? (
+                {isLoading ? (
+                    <div className="flex-1 flex items-center justify-center p-6">
+                        <div className="bg-white p-6 rounded-2xl shadow text-center">
+                            <div className="text-lg font-medium">Loading profile…</div>
+                            <div className="text-sm text-gray-500 mt-2">Please wait while we load your data.</div>
+                        </div>
+                    </div>
+                ) : viewMode === "profile" ? (
                     <Card className="w-full h-full shadow-2xl border-0 overflow-hidden rounded-2xl">
                         <div className="h-28 bg-gradient-to-r from-blue-500 to-purple-600"></div>
                         <CardContent className="pt-0 relative px-8 pb-12 h-full flex flex-col items-stretch">

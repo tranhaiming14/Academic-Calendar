@@ -196,6 +196,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+# near top: DEBUG = True (ensure debug enabled in dev)
+if DEBUG:
+    INSTALLED_APPS += ["debug_toolbar"]
 
+    # put DebugToolbarMiddleware early in the middleware list
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+
+    INTERNAL_IPS = ["127.0.0.1", "localhost"]
 # If you serve the frontend from Django in production, set
 # CORS_ALLOWED_ORIGINS to your production host(s) instead.
