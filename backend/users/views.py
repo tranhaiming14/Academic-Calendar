@@ -2,6 +2,9 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
+from django.db import models
 
 from .models import StudentProfile
 from calendar_app.models import Major
@@ -215,4 +218,54 @@ class StudentImportView(APIView):
 
 		# include updated/skipped arrays for frontend summary compatibility
 		return Response({"created": created, "updated": updated, "skipped": skipped, "errors": errors}, status=status.HTTP_200_OK)
+
+
+class StudentPagePagination(PageNumberPagination):
+	page_size = 20
+	page_size_query_param = 'page_size'
+
+
+class StudentListView(generics.ListAPIView):
+	"""Paginated list of students for management UI."""
+	serializer_class = StudentProfileSerializer
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+	pagination_class = StudentPagePagination
+
+	def get_queryset(self):
+		qs = StudentProfile.objects.all().order_by('student_id')
+		# optional search by name or student_id
+		q = self.request.query_params.get('q')
+		if q:
+			qs = qs.filter(models.Q(name__icontains=q) | models.Q(student_id__icontains=q) | models.Q(email__icontains=q))
+
+		# filter by year
+		year = self.request.query_params.get('year')
+		if year:
+			try:
+				y = int(year)
+				qs = qs.filter(year=y)
+			except Exception:
+				pass
+
+		# filter by major (accept id or name)
+		major = self.request.query_params.get('major')
+		if major:
+			# try id first
+			try:
+				mid = int(major)
+				qs = qs.filter(major__id=mid)
+			except Exception:
+				qs = qs.filter(major__name__icontains=major)
+
+		return qs
+
+
+class MajorListView(APIView):
+	"""Return list of majors for frontend filters."""
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+
+	def get(self, request):
+		majors = Major.objects.all().order_by('name')
+		data = [{"id": m.id, "name": m.name} for m in majors]
+		return Response(data)
 

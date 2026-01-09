@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getLocalProfile } from "@/lib/profileService";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon, ChevronLeft, ChevronRight, User, Bell, Shield } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, User, Bell, Shield } from "lucide-react";
 
 export default function Sidebar() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -12,6 +12,8 @@ export default function Sidebar() {
   });
   const navigate = useNavigate();
   const location = useLocation();
+  // management routes that should keep the Management dropdown open when navigated
+  const managementRoutes = ["/import-students", "/students"];
 
   // Save to localStorage whenever state changes
   useEffect(() => {
@@ -20,6 +22,34 @@ export default function Sidebar() {
 
   const profile = getLocalProfile();
   const role = profile?.role;
+  const [managementOpen, setManagementOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('managementOpen');
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {
+      // ignore
+    }
+    // default open if current route is under management
+    return managementRoutes.some((r) => location.pathname.startsWith(r));
+  });
+
+  // persist managementOpen
+  useEffect(() => {
+    try {
+      localStorage.setItem('managementOpen', JSON.stringify(managementOpen));
+    } catch (e) {
+      // ignore
+    }
+  }, [managementOpen]);
+
+  // keep Management open when navigating within management routes
+  useEffect(() => {
+    if (managementRoutes.some((r) => location.pathname.startsWith(r))) {
+      setManagementOpen(true);
+    }
+    // do not auto-close when navigating away; user-controlled or stored state remains
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
   const showCreate = role === "academic_assistant" || role === "administrator";
   const showApprove = role === "department_assistant" || role === "administrator";
 
@@ -138,19 +168,50 @@ export default function Sidebar() {
               </Button>
             )}
             {showApprove && (
-              <Button
-                variant="ghost"
-                className={`justify-start ${getButtonClassName("/import-students")}`}
-                onClick={() => navigate("/import-students")}
-                title="Import Students"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                  <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
-                </svg>
-                Import Students
-              </Button>
+              <div>
+                <Button
+                  variant="ghost"
+                  className={`w-full flex items-center justify-between ${getButtonClassName("/management")}`}
+                  onClick={() => setManagementOpen(!managementOpen)}
+                  title="Management"
+                >
+                  <span className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
+                    </svg>
+                    Management
+                  </span>
+                  {managementOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+                <div className={`w-full mt-1 overflow-hidden transition-all duration-200 ease-in-out ${managementOpen ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`} aria-hidden={!managementOpen}>
+                  <div className="w-full flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      className={`w-full justify-start ${getButtonClassName("/import-students")}`}
+                      onClick={() => navigate("/import-students")}
+                      title="Import Students"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                        <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
+                      </svg>
+                      Import Students
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className={`w-full justify-start ${getButtonClassName("/students")}`}
+                      onClick={() => navigate("/students")}
+                      title="Student Management"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M3 12h18M3 17h18" />
+                      </svg>
+                      Student Management
+                    </Button>
+                  </div>
+                </div>
+              </div>
             )}
             {role === "administrator" && (
               <Button
