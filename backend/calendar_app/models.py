@@ -44,11 +44,18 @@ class AuditLog(models.Model):
     ACTIONS = [
         ("createEvent", "Create Event"),
         ("approveEvent", "Approve Event"),
+        ("createStudent", "Create Student"),
+        ("promoteStudent", "Promote Student"),
     ]
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    action = models.CharField(max_length=20, choices=ACTIONS)
-    event = models.ForeignKey(ScheduledEvent, on_delete=models.CASCADE)
+    action = models.CharField(max_length=30, choices=ACTIONS)
+    # link to event or student depending on action
+    event = models.ForeignKey(ScheduledEvent, on_delete=models.CASCADE, null=True, blank=True)
+    student = models.ForeignKey('users.StudentProfile', on_delete=models.CASCADE, null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
+    # optional free-text notes to record aggregate counts or details
+    notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.user.username} {self.action} {self.event}"
+        target = self.event or self.student
+        return f"{self.user.username} {self.action} {target}" 

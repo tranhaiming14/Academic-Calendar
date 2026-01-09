@@ -45,13 +45,34 @@ class ScheduledEventSerializer(serializers.ModelSerializer):
 class AuditLogSerializer(serializers.ModelSerializer):
     user_email = serializers.SerializerMethodField()
     event_details = serializers.SerializerMethodField()
+    student_details = serializers.SerializerMethodField()
+    notes = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLog
-        fields = ['id', 'user_email', 'action', 'event_details', 'timestamp']
+        fields = ['id', 'user_email', 'action', 'event_details', 'student_details', 'notes', 'timestamp']
 
     def get_user_email(self, obj):
         return obj.user.email or obj.user.username
 
     def get_event_details(self, obj):
-        return f"Course: {obj.event.course.name}, Time: {obj.event.date} {obj.event.start_time}"
+        try:
+            if obj.event:
+                return f"Course: {obj.event.course.name}, Time: {obj.event.date} {obj.event.start_time}"
+        except Exception:
+            pass
+        return None
+
+    def get_student_details(self, obj):
+        try:
+            if obj.student:
+                return {"id": obj.student.id, "student_id": obj.student.student_id, "name": obj.student.name}
+        except Exception:
+            pass
+        return None
+
+    def get_notes(self, obj):
+        try:
+            return obj.notes
+        except Exception:
+            return None

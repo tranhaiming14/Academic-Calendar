@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import StudentProfileCreateView, UserProfileView, StudentImportView
+from .views import StudentListView, MajorListView, BulkPromoteView
 
 print("LOADING USERS URLS MODULE")
 
@@ -14,4 +15,7 @@ urlpatterns = [
     path("create-student/", StudentProfileCreateView.as_view(), name="create-student"),
     # Excel import endpoint for DAA/admin
     path("import-students/", StudentImportView.as_view(), name="import-students"),
+    path("students/", StudentListView.as_view(), name="student-list"),
+    path("majors/", MajorListView.as_view(), name="major-list"),
+    path("students/bulk-promote/", BulkPromoteView.as_view(), name="students-bulk-promote"),
 ]

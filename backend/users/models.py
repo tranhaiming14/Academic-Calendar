@@ -39,19 +39,24 @@ class StudentProfile(models.Model):
     # link student's major to Major model in calendar_app; allow null to ease migrations and optional students
     major = models.ForeignKey('calendar_app.Major', on_delete=models.SET_NULL, null=True, blank=True, related_name="students")
     year = models.PositiveSmallIntegerField()
+    # whether the student is eligible to advance to the next year
+    can_advance = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.user_id:  # If no user assigned yet
-            # Create username: name lowercased no spaces + DOB as ddmmyy
-            name_clean = self.name.lower().replace(' ', '')
-            username = self.email 
-            
-            # Create password: name lowercased no spaces + student_id lowercased
-            password = name_clean + self.student_id.lower()
-            
+            # Username should be the student's name and email the student's email
+            username = self.name
+
+            # Password: DOB in ddmmyy format + student_id
+            try:
+                dob_str = self.dob.strftime('%d%m%y')
+            except Exception:
+                dob_str = str(self.dob)
+            password = f"{dob_str}{self.student_id}"
+
             # Create the user (use get_user_model for safety)
             user_model = get_user_model()
-            user = user_model.objects.create_user(username=username, password=password, role='student')
+            user = user_model.objects.create_user(username=username, email=self.email, password=password, role='student')
             self.user = user
             
             # Log the created credentials

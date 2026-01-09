@@ -2,13 +2,18 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
+from django.db import models
 
 from .models import StudentProfile
+from calendar_app.models import Major, AuditLog
 from .serializers import StudentProfileSerializer, UserSerializer
 from .permissions import IsDAAOrAdminOrHasModelPerm
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.db.models import F
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -31,7 +36,21 @@ class StudentProfileCreateView(generics.CreateAPIView):
 	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
 
 	def create(self, request, *args, **kwargs):
-		return super().create(request, *args, **kwargs)
+			resp = super().create(request, *args, **kwargs)
+			# create audit log for created student
+			try:
+				# serializer saved instance is available on response data id; fetch profile
+				created_id = resp.data.get('id') if isinstance(resp.data, dict) else None
+				if created_id:
+					sp = StudentProfile.objects.filter(id=created_id).first()
+					if sp:
+						try:
+							AuditLog.objects.create(user=request.user, action='createStudent', student=sp)
+						except Exception:
+							pass
+			except Exception:
+				pass
+			return resp
 
 
 class StudentImportView(APIView):
@@ -74,19 +93,49 @@ class StudentImportView(APIView):
 		if not rows:
 			return Response({"detail": "Excel file is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
-		headers = [str(h).strip().lower() if h is not None else "" for h in rows[0]]
+		# Normalize headers (lowercase, collapse spaces, remove punctuation)
+		import re
 
-		# Determine column indices for required fields
+		def normalize(s):
+			if s is None:
+				return ""
+			s = str(s)
+			s = s.strip().lower()
+			# replace non-alphanumeric with space, collapse spaces
+			s = re.sub(r"[^0-9a-z]+", " ", s)
+			s = re.sub(r"\s+", " ", s).strip()
+			return s
+
+		raw_headers = rows[0]
+		headers = [normalize(h) for h in raw_headers]
+
+		# Flexible matching for expected columns
 		def find_col(names):
-			for n in names:
-				if n in headers:
-					return headers.index(n)
+			for i, h in enumerate(headers):
+				for n in names:
+					if normalize(n) == h:
+						return i
 			return None
 
-		name_col = find_col(["name", "full name"]) or 0
-		dob_col = find_col(["dob", "date of birth", "birthdate"]) or 1
-		email_col = find_col(["email", "login email"]) or 2
-		sid_col = find_col(["student id", "student_id", "studentid"]) or 3
+		# required fields
+		name_col = find_col(["name", "full name", "student name", "student_name"])
+		dob_col = find_col(["dob", "date of birth", "birthdate", "date of birth (yyyy-mm-dd)"])
+		email_col = find_col(["email", "student email", "student_email", "email address"])
+		sid_col = find_col(["student id", "student_id", "studentid", "id"])
+		major_col = find_col(["major", "department", "faculty"])
+
+		missing = []
+		if name_col is None:
+			missing.append("name / student name")
+		if dob_col is None:
+			missing.append("dob / date of birth")
+		if email_col is None:
+			missing.append("email / student email")
+		if sid_col is None:
+			missing.append("student id")
+
+		if missing:
+			return Response({"detail": f"Missing required columns in Excel header: {', '.join(missing)}", "found_headers": raw_headers}, status=status.HTTP_400_BAD_REQUEST)
 
 		user_model = get_user_model()
 		created = []
@@ -96,10 +145,11 @@ class StudentImportView(APIView):
 
 		for idx, row in enumerate(rows[1:], start=2):
 			try:
-				name = row[name_col] if name_col < len(row) else None
-				dob_val = row[dob_col] if dob_col < len(row) else None
-				email = row[email_col] if email_col < len(row) else None
-				student_id = row[sid_col] if sid_col < len(row) else None
+				name = row[name_col] if name_col is not None and name_col < len(row) else None
+				dob_val = row[dob_col] if dob_col is not None and dob_col < len(row) else None
+				email = row[email_col] if email_col is not None and email_col < len(row) else None
+				student_id = row[sid_col] if sid_col is not None and sid_col < len(row) else None
+				major_val = row[major_col] if major_col is not None and major_col < len(row) else None
 
 				if not all((name, dob_val, email, student_id)):
 					raise ValueError("Missing one of required fields: name, dob, email, student_id")
@@ -163,13 +213,134 @@ class StudentImportView(APIView):
 						pass
 
 					# create student profile; set a default year=1 if not provided
-					profile = StudentProfile.objects.create(user=user, name=str(name).strip(), email=email_clean, dob=dob, student_id=sid_clean, year=1)
+					profile_kwargs = dict(user=user, name=str(name).strip(), email=email_clean, dob=dob, student_id=sid_clean, year=1)
+					# attach major if provided
+					try:
+						if major_val:
+							major_name = str(major_val).strip()
+							if major_name:
+								major_obj, _ = Major.objects.get_or_create(name=major_name)
+								profile_kwargs['major'] = major_obj
+					except Exception:
+						pass
+
+					profile = StudentProfile.objects.create(**profile_kwargs)
+					profile = StudentProfile.objects.create(**profile_kwargs)
+					created.append({"row": idx, "student_id": profile.student_id, "username": user.username})
 					created.append({"row": idx, "student_id": profile.student_id, "username": user.username})
 			except IntegrityError as ie:
 				errors.append({"row": idx, "error": str(ie)})
 			except Exception as e:
 				errors.append({"row": idx, "error": str(e)})
 
+		# create aggregated audit log for import
+		try:
+			if created:
+				AuditLog.objects.create(user=request.user, action='createStudent', notes=f"Imported {len(created)} students; skipped {len(skipped)}; errors {len(errors)}")
+		except Exception:
+			pass
+
 		# include updated/skipped arrays for frontend summary compatibility
 		return Response({"created": created, "updated": updated, "skipped": skipped, "errors": errors}, status=status.HTTP_200_OK)
+
+
+class StudentPagePagination(PageNumberPagination):
+	page_size = 20
+	page_size_query_param = 'page_size'
+
+
+class StudentListView(generics.ListAPIView):
+	"""Paginated list of students for management UI."""
+	serializer_class = StudentProfileSerializer
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+	pagination_class = StudentPagePagination
+
+	def get_queryset(self):
+		qs = StudentProfile.objects.all().order_by('student_id')
+		# optional search by name or student_id
+		q = self.request.query_params.get('q')
+		if q:
+			qs = qs.filter(models.Q(name__icontains=q) | models.Q(student_id__icontains=q) | models.Q(email__icontains=q))
+
+		# filter by year
+		year = self.request.query_params.get('year')
+		if year:
+			try:
+				y = int(year)
+				qs = qs.filter(year=y)
+			except Exception:
+				pass
+
+		# filter by major (accept id or name)
+		major = self.request.query_params.get('major')
+		if major:
+			# try id first
+			try:
+				mid = int(major)
+				qs = qs.filter(major__id=mid)
+			except Exception:
+				qs = qs.filter(major__name__icontains=major)
+
+		return qs
+
+
+class MajorListView(APIView):
+	"""Return list of majors for frontend filters."""
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+
+	def get(self, request):
+		majors = Major.objects.all().order_by('name')
+		data = [{"id": m.id, "name": m.name} for m in majors]
+		return Response(data)
+
+
+class BulkPromoteView(APIView):
+	"""Bulk promote selected students by one year, excluding those who cannot advance.
+
+	POST body: { "student_ids": [1,2,3] }
+	Response: { updated: <count>, promoted_ids: [...], skipped: [{id, reason}] }
+	"""
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+
+	def post(self, request):
+		data = request.data or {}
+		ids = data.get('student_ids') or []
+		if not isinstance(ids, (list, tuple)):
+			return Response({"error": "student_ids must be a list"}, status=status.HTTP_400_BAD_REQUEST)
+
+		MAX_YEAR = 4
+		# find eligible: in ids, year < MAX_YEAR, can_advance True
+		eligible_qs = StudentProfile.objects.filter(id__in=ids, year__lt=MAX_YEAR, can_advance=True)
+		eligible_ids = list(eligible_qs.values_list('id', flat=True))
+
+		# update by incrementing year
+		updated_count = eligible_qs.update(year=F('year') + 1)
+
+		promoted_ids = eligible_ids
+
+		# compute skipped with reasons
+		skipped = []
+		for sid in ids:
+			if sid in promoted_ids:
+				continue
+			try:
+				sp = StudentProfile.objects.get(id=sid)
+				reason = None
+				if not sp.can_advance:
+					reason = 'not allowed to advance'
+				elif sp.year >= MAX_YEAR:
+					reason = 'already at max year'
+				else:
+					reason = 'unknown reason'
+			except StudentProfile.DoesNotExist:
+				reason = 'not found'
+			skipped.append({"id": sid, "reason": reason})
+
+		# create an aggregated audit log for the promotion operation
+		try:
+			AuditLog.objects.create(user=request.user, action='promoteStudent', notes=f"Promoted {updated_count} students; skipped {len(skipped)}")
+		except Exception:
+			pass
+
+		return Response({"updated": updated_count, "promoted_ids": promoted_ids, "skipped": skipped})
 
