@@ -194,12 +194,15 @@ export default function CalendarPage() {
     try { return t.toString().slice(0, 5); } catch { return String(t); }
   };
 
-  const colorForType = (t?: string) => {
+  const colorForType = (t?: string, status?: string) => {
+    // pending events get yellow background
+    if (status === 'pending') return { dot: 'bg-yellow-500', block: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
+
     const def = { dot: 'bg-blue-500', block: 'bg-blue-600 text-white' };
     if (!t) return def;
     const s = t.toLowerCase();
     if (s.includes('exam')) return { dot: 'bg-red-500', block: 'bg-red-600 text-white' };
-    if (s.includes('lab')) return { dot: 'bg-yellow-400', block: 'bg-yellow-300 text-black' };
+    if (s.includes('lab')) return { dot: 'bg-purple-500', block: 'bg-purple-100 text-purple-800 border-purple-200' };
     // default = normal lecture
     return def;
   };
@@ -462,10 +465,21 @@ export default function CalendarPage() {
                               {/* event indicators by type (small colored dots) */}
                               {eventsForDay.length > 0 && (
                                 <div className="absolute bottom-1 right-1 flex items-center gap-1">
-                                  {Array.from(new Set(eventsForDay.map(ev => (ev.event_type || 'lecture').toLowerCase()))).slice(0, 3).map((typ) => {
-                                    const cls = colorForType(typ).dot;
-                                    return <span key={typ} className={`${cls} w-3 h-3 rounded-full`} />;
-                                  })}
+                                  {(() => {
+                                    // Aggregate logic:
+                                    // If any pending -> show 1 yellow dot
+                                    // If any approved -> show 1 blue dot
+                                    // If both -> show both
+                                    const hasPending = eventsForDay.some(e => e.status === 'pending');
+                                    const hasApproved = eventsForDay.some(e => e.status !== 'pending' && e.status !== 'rejected');
+
+                                    return (
+                                      <>
+                                        {hasPending && <span className="bg-yellow-500 w-3 h-3 rounded-full" title="Pending Events" />}
+                                        {hasApproved && <span className="bg-blue-500 w-3 h-3 rounded-full" title="Approved Events" />}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </button>
@@ -535,9 +549,9 @@ export default function CalendarPage() {
                                     const duration = Math.max(15, evEnd - evStart);
                                     const top = topMinutes * pxPerMinute;
                                     const height = duration * pxPerMinute;
-                                    const colorCls = colorForType(ev.event_type).block;
+                                    const colorCls = colorForType(ev.event_type, ev.status).block;
                                     return (
-                                      <div key={ev.id} className={`${colorCls} absolute left-1 right-1 rounded-md p-2 text-[12px] shadow overflow-hidden`} style={{ top: top, height: height }}>
+                                      <div key={ev.id} className={`${colorCls} absolute left-1 right-1 rounded-md p-2 text-[12px] shadow overflow-hidden border`} style={{ top: top, height: height }}>
                                         <div className="font-semibold text-sm leading-tight truncate">{ev.title || ev.course_name || `Event ${ev.id}`}</div>
                                         <div className="text-[11px] leading-tight">{fmtTime(ev.start_time)} - {fmtTime(ev.end_time)}</div>
                                         {ev.course_name && <div className="text-[11px] leading-tight">{ev.course_name}{ev.event_type ? ` • ${ev.event_type}` : ''}</div>}
@@ -613,7 +627,7 @@ export default function CalendarPage() {
                                   <span className="font-semibold not-italic">Note:</span> {e.notes}
                                 </div>
                               )}
-                              {e.status && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
+                              {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-700'}`}>{e.status}</div>}
                             </div>
                           ))}
                         </div>
