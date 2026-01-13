@@ -462,7 +462,7 @@ export default function CalendarPage() {
                               {/* event indicators by type (small colored dots) */}
                               {eventsForDay.length > 0 && (
                                 <div className="absolute bottom-1 right-1 flex items-center gap-1">
-                                  {Array.from(new Set(eventsForDay.map(ev => (ev.event_type || 'lecture').toLowerCase()))).slice(0,3).map((typ) => {
+                                  {Array.from(new Set(eventsForDay.map(ev => (ev.event_type || 'lecture').toLowerCase()))).slice(0, 3).map((typ) => {
                                     const cls = colorForType(typ).dot;
                                     return <span key={typ} className={`${cls} w-3 h-3 rounded-full`} />;
                                   })}
@@ -608,6 +608,11 @@ export default function CalendarPage() {
                               </div>
                               {e.tutor_name && <div className="text-sm text-gray-600">Lecturer: {e.tutor_name}</div>}
                               {e.room_name && <div className="text-xs text-gray-500 mt-2">Room: {e.room_name}</div>}
+                              {e.notes && (
+                                <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-700 border border-gray-100 italic">
+                                  <span className="font-semibold not-italic">Note:</span> {e.notes}
+                                </div>
+                              )}
                               {e.status && <div className="mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">{e.status}</div>}
                             </div>
                           ))}
