@@ -62,13 +62,20 @@ export default function Profile() {
 
     useEffect(() => {
         const load = async () => {
-            const data = await getProfile();
-            if (!data) {
-                // frontend-only demo profile when no backend/auth
-                setUser({ username: "Demo User", email: "demo@example.com", role: "User" });
-                return;
+            // Optimistic load: check local cache first to show UI immediately
+            const cached = getLocalProfile();
+            if (cached) {
+                setUser(cached);
             }
-            setUser(data);
+
+            // Then fetch fresh data from API
+            const data = await getProfile();
+            if (data) {
+                setUser(data);
+            } else if (!cached) {
+                // only fallback to demo if we had nothing cached AND api failed/returned nothing
+                setUser({ username: "Demo User", email: "demo@example.com", role: "User" });
+            }
         };
         load();
     }, []);
