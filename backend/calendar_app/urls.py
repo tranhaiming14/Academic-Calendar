@@ -13,6 +13,7 @@ urlpatterns = [
     path("scheduledevents/", views.scheduledevents_list),
     path("events/", views.events_fallback),
     path("create_event/", views.create_event),
+    path("edit_event/<int:event_id>/", views.edit_event),
     path("export/", views.export_calendar),
     # Audit logs
     path("audit/logs/", views.get_audit_logs),

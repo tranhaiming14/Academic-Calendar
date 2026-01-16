@@ -216,11 +216,12 @@ def edit_event(request, event_id):
     except ScheduledEvent.DoesNotExist:
         return Response({"error": "Event not found"}, status=404)
 
-    if event.status != "pending":
-        return Response({"error": "Only pending events can be edited or cancelled"}, status=400)
+    # Allow editing regardless of status for admin/DAA
+    # if event.status != "pending":
+    #    return Response({"error": "Only pending events can be edited or cancelled"}, status=400)
 
-    # Only academic assistants and administrators can edit pending events
-    res = _require_role_or_404(request, ("academic_assistant", "administrator"))
+    # Only academic assistants, department assistants and administrators can edit pending events
+    res = _require_role_or_404(request, ("academic_assistant", "department_assistant", "administrator"))
     if res:
         return res
 
