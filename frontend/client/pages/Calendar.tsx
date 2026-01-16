@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Download } from "lucide-react";
+import { CreateEventForm } from "./CreateEvents"; // Import the form
 
 type EventItem = {
   id: number;
@@ -61,6 +62,7 @@ export default function CalendarPage() {
   const [selectedEventType, setSelectedEventType] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null); // State for editing modal
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
@@ -219,7 +221,16 @@ export default function CalendarPage() {
     };
     fetchEvents();
     return () => { mounted = false; };
-  }, []);
+  }, [editingEvent]); // Reload events when editing finishes (simple way)
+
+  const handleEditDone = () => {
+    setEditingEvent(null);
+    // Events will reload due to useEffect dependency or we can manually trigger
+    // Actually adding dependency on editingEvent might cause loop if not careful.
+    // Better to just manually call fetch logic or re-trigger effect by a counter.
+    // Ideally refactor fetchEvents out. For now, simple force reload:
+    window.location.reload();
+  };
 
   const handleApprove = async (eventId: number) => {
     try {
@@ -254,6 +265,24 @@ export default function CalendarPage() {
     <div className="flex min-h-screen bg-gray-50 font-sans text-gray-900">
       <Sidebar />
       <main className="flex-1 flex flex-col">
+        {/* Edit Event Modal */}
+        <Dialog open={!!editingEvent} onOpenChange={(open) => !open && setEditingEvent(null)}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Event</DialogTitle>
+              <DialogDescription>Update event details below.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              {editingEvent && (
+                <CreateEventForm
+                  initialData={editingEvent}
+                  onDone={handleEditDone}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex gap-6 flex-1 min-h-0">
           <div className={`${viewMode === 'week' ? 'w-full' : 'w-2/3'} flex flex-col min-h-0 ${loading ? 'relative' : ''}`}>
             <div className="flex items-center justify-between mb-4 px-2">
@@ -632,7 +661,7 @@ export default function CalendarPage() {
                               {/* Edit Event Button for Authorized Users */}
                               {hasAuthority && (
                                 <div className="mt-3 pt-3 border-t border-blue-100 flex justify-end">
-                                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => alert("Edit logic to be implemented")}>
+                                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => setEditingEvent(e)}>
                                     Edit Event
                                   </Button>
                                 </div>

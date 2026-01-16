@@ -6,11 +6,12 @@ import { useNavigate } from "react-router-dom";
 import DashboardBanner from "@/components/ui/dashboard-banner";
 import Sidebar from "@/components/Sidebar";
 
-type CreateEventFormProps = {
+export interface CreateEventFormProps {
   onDone?: () => void;
-};
+  initialData?: any;
+}
 
-function CreateEventForm({ onDone }: CreateEventFormProps) {
+export function CreateEventForm({ onDone, initialData }: CreateEventFormProps) {
   const API_BASE = (import.meta.env && (import.meta.env.VITE_API_BASE as string)) || "";
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<string>("");
@@ -26,6 +27,30 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
   const [endMinute, setEndMinute] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
+
+  // Pre-fill form if initialData is provided
+  useEffect(() => {
+    if (initialData) {
+      setTitle(initialData.title || "");
+      setDate(initialData.date || "");
+      if (initialData.course) setCourse(String(initialData.course));
+      // Wait for courses to load? Ideally yes, but setting ID usually works for select value
+      if (initialData.event_type) setEventType(initialData.event_type);
+      if (initialData.tutor) setTutor(String(initialData.tutor));
+      if (initialData.start_time) {
+        const [h, m] = initialData.start_time.split(':');
+        setStartHour(h);
+        setStartMinute(m);
+      }
+      if (initialData.end_time) {
+        const [h, m] = initialData.end_time.split(':');
+        setEndHour(h);
+        setEndMinute(m);
+      }
+      if (initialData.room) setLocation(String(initialData.room)); // ID or name
+      if (initialData.notes) setNotes(initialData.notes);
+    }
+  }, [initialData]);
 
   const locations = [
   ];
@@ -189,20 +214,33 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
       const token = localStorage.getItem("accessToken");
       const headers: any = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE}/api/calendar/create_event/`, {
-        method: 'POST',
+
+      let url = `${API_BASE}/api/calendar/create_event/`;
+      let method = 'POST';
+
+      // If editing (initialData has id)
+      if (initialData && initialData.id) {
+        url = `${API_BASE}/api/calendar/edit_event/${initialData.id}/`;
+        method = 'PUT';
+      }
+
+      const res = await fetch(url, {
+        method,
         headers,
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert("Failed to create event: " + (err.detail || res.statusText));
+        alert("Failed to save event: " + (err.detail || res.statusText));
         return;
       }
       setSaved(true);
       try { window.dispatchEvent(new Event('events:changed')); } catch (_) { }
       // Stay on page, reset saved state after delay if needed or just let user see success message
-      setTimeout(() => setSaved(false), 3000);
+      setTimeout(() => {
+        setSaved(false);
+        if (onDone) onDone(); // call onDone to close modal if needed
+      }, 1000);
     } catch (err) {
       console.error(err);
       alert('Network error while creating event');
@@ -335,7 +373,7 @@ function CreateEventForm({ onDone }: CreateEventFormProps) {
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={saved} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-          Create & Send to DAA
+          {initialData ? 'Update Event' : 'Create & Send to DAA'}
         </button>
         <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Cancel</button>
       </div>
