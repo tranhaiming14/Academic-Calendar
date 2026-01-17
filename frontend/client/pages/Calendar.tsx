@@ -360,6 +360,29 @@ export default function CalendarPage() {
                 )}
               </div>
               <div className="ml-auto flex items-center gap-2">
+                <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
+                  if (value === 'month') {
+                    setViewMode('month');
+                  } else {
+                    setViewMode('week');
+                    const now = new Date();
+                    const s = new Date(now);
+                    s.setDate(now.getDate() - now.getDay());
+                    s.setHours(0, 0, 0, 0);
+                    setWeekStart(s);
+                  }
+                }}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Month</SelectItem>
+                    <SelectItem value="week">Week</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Button variant="outline" size="sm">Report</Button>
+
                 <Dialog open={exportOpen} onOpenChange={setExportOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -410,29 +433,7 @@ export default function CalendarPage() {
             {/* Filters: View Mode, Lecturer (staff only), Course */}
             <div className="mb-4 px-2">
               <div className="bg-white p-3 rounded-lg shadow-sm flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-medium text-gray-700">View</div>
-                  <Select value={viewMode} onValueChange={(value: 'month' | 'week') => {
-                    if (value === 'month') {
-                      setViewMode('month');
-                    } else {
-                      setViewMode('week');
-                      const now = new Date();
-                      const s = new Date(now);
-                      s.setDate(now.getDate() - now.getDay());
-                      s.setHours(0, 0, 0, 0);
-                      setWeekStart(s);
-                    }
-                  }}>
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="month">Month</SelectItem>
-                      <SelectItem value="week">Week</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+
 
                 {!isStudent && (
                   <div className="flex items-center gap-2">
