@@ -561,7 +561,13 @@ def scheduledevents_list(request):
 @permission_classes([IsAuthenticated])
 def events_fallback(request):
     """Backward-compatible endpoint: /calendar/events/"""
-    return scheduledevents_list(request)
+    # `request` here is a DRF `Request` (because this view is an API view).
+    # Calling another `@api_view`-decorated view with a DRF `Request` causes
+    # DRF to try to wrap it again and raises an assertion. Pass the
+    # underlying Django `HttpRequest` object instead so the decorated
+    # `scheduledevents_list` can re-wrap it properly.
+    underlying = getattr(request, '_request', request)
+    return scheduledevents_list(underlying)
 
 
 import csv
