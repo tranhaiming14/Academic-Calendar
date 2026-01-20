@@ -542,8 +542,15 @@ def scheduledevents_list(request):
     logger.info(f"scheduledevents_list called by user: {user}, authenticated: {user.is_authenticated}, role: {getattr(user, 'role', None)}")
     logger.info(f"Query params - start: {start_date_str}, end: {end_date_str}")
     
-    # Base queryset
-    qs = ScheduledEvent.objects.all().order_by('date', 'start_time')
+    # Base queryset with optimizations: select_related for FK, prefetch_related for M2M
+    # This prevents N+1 queries when serializing related objects
+    qs = ScheduledEvent.objects.select_related(
+        'course',      # FK to Course
+        'tutor',       # FK to User (tutor)
+        'room'         # FK to Room
+    ).prefetch_related(
+        # If ScheduledEvent has any M2M fields, prefetch them here
+    ).all().order_by('date', 'start_time')
     
     if start_date_str and end_date_str:
         try:
