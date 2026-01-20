@@ -224,6 +224,37 @@ export default function CalendarPage() {
     return def;
   };
 
+  // Helper function to format date as YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Calculate date range based on current view mode
+  const getDateRange = (): { start: string; end: string } => {
+    if (viewMode === 'month') {
+      // Get first and last day of the month
+      const year = displayMonth.getFullYear();
+      const month = displayMonth.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      return {
+        start: formatDate(firstDay),
+        end: formatDate(lastDay),
+      };
+    } else {
+      // Week view: from weekStart to 6 days later
+      const endOfWeek = new Date(weekStart);
+      endOfWeek.setDate(endOfWeek.getDate() + 6);
+      return {
+        start: formatDate(weekStart),
+        end: formatDate(endOfWeek),
+      };
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const fetchEvents = async (): Promise<void> => {
@@ -233,11 +264,20 @@ export default function CalendarPage() {
         const token = localStorage.getItem("accessToken");
         const headers: any = {};
         if (token) headers.Authorization = `Bearer ${token}`;
+        
+        // Get date range based on view mode
+        const dateRange = getDateRange();
+        const queryParams = new URLSearchParams({
+          start: dateRange.start,
+          end: dateRange.end,
+        });
+        const fullUrl = `${API_BASE}/api/calendar/scheduledevents/?${queryParams.toString()}`;
+        
         console.log("Token exists:", !!token, "Token length:", token?.length);
         console.log("Headers being sent:", headers);
         console.log("API_BASE:", API_BASE);
-        console.log("Full URL:", `${API_BASE}/api/calendar/scheduledevents/`);
-        const res = await fetch(`${API_BASE}/api/calendar/scheduledevents/`, { headers });
+        console.log("Full URL:", fullUrl);
+        const res = await fetch(fullUrl, { headers });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.json();
         console.log("Fetched events raw:", data);
@@ -253,8 +293,9 @@ export default function CalendarPage() {
           const token = localStorage.getItem("accessToken");
           const headers: any = {};
           if (token) headers.Authorization = `Bearer ${token}`;
-
-          const res2 = await fetch(`${API_BASE}/api/calendar/events/`, { headers });
+          const dateRange = getDateRange();
+          const fallbackUrl = `${API_BASE}/api/calendar/events/?start=${dateRange.start}&end=${dateRange.end}`;
+          const res2 = await fetch(fallbackUrl, { headers });
           if (res2.ok) {
             const d2 = await res2.json();
             console.log("Fetched events fallback:", d2);
@@ -268,7 +309,7 @@ export default function CalendarPage() {
     };
     fetchEvents();
     return () => { mounted = false; };
-  }, [editingEvent]); // Reload events when editing finishes (simple way)
+  }, [viewMode, displayMonth, weekStart, editingEvent]); // Reload events when view mode, month, or week changes
 
   const handleEditDone = () => {
     setEditingEvent(null);

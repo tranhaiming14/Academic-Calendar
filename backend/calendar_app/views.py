@@ -527,12 +527,31 @@ def rooms_available(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def scheduledevents_list(request):
-    """Return scheduled events filtered by user's role and profile."""
+    """Return scheduled events filtered by user's role, profile, and date range.
+    
+    Query Parameters:
+    - start: Start date (YYYY-MM-DD format)
+    - end: End date (YYYY-MM-DD format)
+    """
     user = request.user
     logger.info(f"scheduledevents_list called by user: {user}, authenticated: {user.is_authenticated}, role: {getattr(user, 'role', None)}")
     
     # Base queryset
     qs = ScheduledEvent.objects.all().order_by('date', 'start_time')
+    
+    # Parse start and end dates from query parameters
+    start_date_str = request.query_params.get('start')
+    end_date_str = request.query_params.get('end')
+    
+    if start_date_str and end_date_str:
+        try:
+            import datetime
+            start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            qs = qs.filter(date__gte=start_date, date__lte=end_date)
+            logger.info(f"Filtering events from {start_date} to {end_date}")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid date format: start={start_date_str}, end={end_date_str}, error={e}")
     
     # If user is a student, filter by their major and year
     if user.role == "student":
