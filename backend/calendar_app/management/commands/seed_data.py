@@ -146,8 +146,8 @@ class Command(BaseCommand):
         
         # Admin
         if not User.objects.filter(username="admin").exists():
-            User.objects.create_superuser("admin", "admin@example.com", "adminpass")
-            self.stdout.write("Created superuser: admin/admin")
+            User.objects.create_superuser("admin", "johny@doe.com", "bomaylaadmin")
+            self.stdout.write("Created superuser: admin")
 
         # DAA (Department Academic Assistant)
         if not User.objects.filter(username="daa").exists():
