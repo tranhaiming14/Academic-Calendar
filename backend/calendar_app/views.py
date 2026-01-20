@@ -534,14 +534,16 @@ def scheduledevents_list(request):
     - end: End date (YYYY-MM-DD format)
     """
     user = request.user
-    logger.info(f"scheduledevents_list called by user: {user}, authenticated: {user.is_authenticated}, role: {getattr(user, 'role', None)}")
-    
-    # Base queryset
-    qs = ScheduledEvent.objects.all().order_by('date', 'start_time')
     
     # Parse start and end dates from query parameters
     start_date_str = request.query_params.get('start')
     end_date_str = request.query_params.get('end')
+    
+    logger.info(f"scheduledevents_list called by user: {user}, authenticated: {user.is_authenticated}, role: {getattr(user, 'role', None)}")
+    logger.info(f"Query params - start: {start_date_str}, end: {end_date_str}")
+    
+    # Base queryset
+    qs = ScheduledEvent.objects.all().order_by('date', 'start_time')
     
     if start_date_str and end_date_str:
         try:
@@ -552,6 +554,8 @@ def scheduledevents_list(request):
             logger.info(f"Filtering events from {start_date} to {end_date}")
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid date format: start={start_date_str}, end={end_date_str}, error={e}")
+    else:
+        logger.warning(f"Missing date parameters: start={start_date_str}, end={end_date_str}")
     
     # If user is a student, filter by their major and year
     if user.role == "student":

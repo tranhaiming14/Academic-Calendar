@@ -267,25 +267,42 @@ export default function CalendarPage() {
         
         // Get date range based on view mode
         const dateRange = getDateRange();
+        console.log("=== CALENDAR FETCH START ===");
+        console.log("Current viewMode:", viewMode);
+        console.log("displayMonth:", displayMonth);
+        console.log("weekStart:", weekStart);
+        console.log("Date range calculated:", dateRange);
+        
         const queryParams = new URLSearchParams({
           start: dateRange.start,
           end: dateRange.end,
         });
-        const fullUrl = `${API_BASE}/api/calendar/scheduledevents/?${queryParams.toString()}`;
+        const queryString = queryParams.toString();
+        console.log("Query string:", queryString);
         
-        console.log("Token exists:", !!token, "Token length:", token?.length);
-        console.log("Headers being sent:", headers);
+        const fullUrl = `${API_BASE}/api/calendar/scheduledevents/?${queryString}`;
+        
         console.log("API_BASE:", API_BASE);
-        console.log("Full URL:", fullUrl);
+        console.log("Full URL being called:", fullUrl);
+        console.log("Token exists:", !!token);
+        console.log("Headers:", headers);
+        
         const res = await fetch(fullUrl, { headers });
+        console.log("Response status:", res.status, res.statusText);
+        console.log("Response URL (after redirect):", res.url);
+        
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.json();
+        console.log("Fetched events count:", Array.isArray(data) ? data.length : data.results?.length || 0);
         console.log("Fetched events raw:", data);
+        
         if (!mounted) return;
         // normalize to array of events
         const normalized = Array.isArray(data) ? data : (data.results || []);
         setEvents(normalized);
+        console.log("=== CALENDAR FETCH SUCCESS ===");
       } catch (err: any) {
+        console.error("=== CALENDAR FETCH ERROR ===", err);
         setError(String(err));
         console.warn("Failed to fetch /scheduledevents/, trying /events/:", err);
         // fallback: try a shorter path
@@ -295,6 +312,7 @@ export default function CalendarPage() {
           if (token) headers.Authorization = `Bearer ${token}`;
           const dateRange = getDateRange();
           const fallbackUrl = `${API_BASE}/api/calendar/events/?start=${dateRange.start}&end=${dateRange.end}`;
+          console.log("Fallback URL:", fallbackUrl);
           const res2 = await fetch(fallbackUrl, { headers });
           if (res2.ok) {
             const d2 = await res2.json();
@@ -302,7 +320,9 @@ export default function CalendarPage() {
             if (mounted) setEvents(Array.isArray(d2) ? d2 : (d2.results || []));
             setError(null);
           }
-        } catch { }
+        } catch (fallbackErr) {
+          console.error("Fallback also failed:", fallbackErr);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
