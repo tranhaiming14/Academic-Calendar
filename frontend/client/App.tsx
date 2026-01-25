@@ -17,6 +17,7 @@ import ApproveEvents from "./pages/ApproveEvents";
 import AuditTrail from "./pages/AuditTrail";
 import ImportStudents from "./pages/ImportStudents";
 import StudentManagement from "./pages/StudentManagement";
+import StaffManagement from "./pages/StaffManagement";
 import RequireAuth from "./components/RequireAuth";
 import RequireRole from "./components/RequireRole";
 
@@ -70,6 +71,16 @@ const App = () => (
               <RequireAuth>
                 <RequireRole roles={["department_assistant", "administrator"]}>
                   <StudentManagement />
+                </RequireRole>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/staff"
+            element={
+              <RequireAuth>
+                <RequireRole roles={["department_assistant", "administrator"]}>
+                  <StaffManagement />
                 </RequireRole>
               </RequireAuth>
             }

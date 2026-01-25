@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import StudentProfileCreateView, UserProfileView, StudentImportView
-from .views import StudentListView, MajorListView, BulkPromoteView
+from .views import StudentListView, MajorListView, BulkPromoteView, StaffListView, StaffCreateView
 
 print("LOADING USERS URLS MODULE")
 
@@ -18,4 +18,7 @@ urlpatterns = [
     path("students/", StudentListView.as_view(), name="student-list"),
     path("majors/", MajorListView.as_view(), name="major-list"),
     path("students/bulk-promote/", BulkPromoteView.as_view(), name="students-bulk-promote"),
+    # Staff management endpoints
+    path("staff/", StaffListView.as_view(), name="staff-list"),
+    path("create-staff/", StaffCreateView.as_view(), name="create-staff"),
 ]

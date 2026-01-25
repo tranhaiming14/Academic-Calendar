@@ -13,7 +13,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   // management routes that should keep the Management dropdown open when navigated
-  const managementRoutes = ["/import-students", "/students"];
+  const managementRoutes = ["/import-students", "/students", "/staff"];
 
   // Save to localStorage whenever state changes
   useEffect(() => {
@@ -233,6 +233,14 @@ export default function Sidebar() {
                     >
                       Student Management
                     </Button>
+                    <Button
+                      variant="ghost"
+                      className={`w-full justify-start ${getButtonClassName("/staff")}`}
+                      onClick={() => navigate("/staff")}
+                      title="Staff Management"
+                    >
+                      Staff Management
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -330,6 +338,15 @@ export default function Sidebar() {
                   <polyline points="7 10 12 5 17 10" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
                   <line x1="12" y1="5" x2="12" y2="19" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} />
                 </svg>
+              </button>
+            )}
+            {showApprove && (
+              <button
+                onClick={() => navigate("/staff")}
+                className={getCollapsedButtonClassName("/staff")}
+                title="Staff Management"
+              >
+                <User className="h-5 w-5" />
               </button>
             )}
             {role === "administrator" && (

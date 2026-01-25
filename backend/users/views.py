@@ -14,6 +14,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.db.models import F
+from .serializers import StaffSerializer, StaffCreateSerializer
+from rest_framework import generics
+from django.db import models
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -247,6 +250,51 @@ class StudentImportView(APIView):
 class StudentPagePagination(PageNumberPagination):
 	page_size = 20
 	page_size_query_param = 'page_size'
+
+
+class StaffPagePagination(PageNumberPagination):
+	page_size = 20
+	page_size_query_param = 'page_size'
+
+
+class StaffListView(generics.ListAPIView):
+	"""Paginated list of staff users (tutors, academic assistants, department assistants)."""
+	serializer_class = StaffSerializer
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+	pagination_class = StaffPagePagination
+
+	def get_queryset(self):
+		User = get_user_model()
+		qs = User.objects.filter(role__in=("tutor", "academic_assistant", "department_assistant")).order_by('first_name')
+		q = self.request.query_params.get('q')
+		if q:
+			qs = qs.filter(models.Q(username__icontains=q) | models.Q(email__icontains=q) | models.Q(first_name__icontains=q) | models.Q(tutor_profile__name__icontains=q) | models.Q(academic_assistant_profile__name__icontains=q) | models.Q(department_academic_assistant_profile__name__icontains=q))
+		# optional filter by role (tutor | academic_assistant | department_assistant)
+		role = self.request.query_params.get('role')
+		if role:
+			try:
+				qs = qs.filter(role=role)
+			except Exception:
+				pass
+		return qs
+
+
+class StaffCreateView(generics.CreateAPIView):
+	"""Create a staff user and associated minimal profile."""
+	serializer_class = StaffCreateSerializer
+	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
+
+	def create(self, request, *args, **kwargs):
+		serializer = self.get_serializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		user = serializer.save()
+		# return created user using StaffSerializer
+		out = StaffSerializer(user, context={"request": request}).data
+		try:
+			AuditLog.objects.create(user=request.user, action='createStaff', notes=f"Created staff user {out.get('email')}")
+		except Exception:
+			pass
+		return Response(out, status=status.HTTP_201_CREATED)
 
 
 class StudentListView(generics.ListAPIView):
