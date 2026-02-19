@@ -60,15 +60,61 @@ class Command(BaseCommand):
 
         self.stdout.write("Seeding majors...")
         majors = []
-        for _ in range(majors_n):
-            name = fake.unique.job().split("/")[0][:40]
+        major_names = [
+            "Computer Science",
+            "Electrical Engineering",
+            "Mechanical Engineering",
+            "Biotechnology",
+            "Applied Mathematics",
+            "Physics",
+            "Chemistry",
+            "Information Technology",
+            "Aerospace Engineering",
+            "Environmental Science",
+            "Business Administration",
+            "Data Science",
+        ]
+        for i in range(min(majors_n, len(major_names))):
+            name = major_names[i]
             m, _ = Major.objects.get_or_create(name=name)
             majors.append(m)
 
         self.stdout.write("Seeding courses...")
         courses = []
-        for i in range(courses_n):
-            name = f"{fake.word().capitalize()} {fake.random_int(100,499)}"
+        course_names = [
+            "Introduction to Programming",
+            "Data Structures and Algorithms",
+            "Database Management Systems",
+            "Operating Systems",
+            "Computer Networks",
+            "Software Engineering",
+            "Artificial Intelligence",
+            "Machine Learning",
+            "Calculus I",
+            "Calculus II",
+            "Linear Algebra",
+            "Discrete Mathematics",
+            "Probability and Statistics",
+            "Physics I",
+            "Physics II",
+            "General Chemistry",
+            "Organic Chemistry",
+            "Classical Mechanics",
+            "Quantum Mechanics",
+            "Thermodynamics",
+            "Digital Logic Design",
+            "Microprocessors",
+            "Signal Processing",
+            "Control Systems",
+            "Web Development",
+            "Mobile Application Development",
+            "Cloud Computing",
+            "Cybersecurity",
+            "Molecular Biology",
+            "Genetics",
+        ]
+        for i in range(min(courses_n, len(course_names))):
+            name = course_names[i]
             year = random.randint(1,4)
             major = random.choice(majors) if majors else None
             c, _ = Course.objects.get_or_create(name=name, year=year, major=major)
@@ -76,8 +122,16 @@ class Command(BaseCommand):
 
         self.stdout.write("Seeding rooms...")
         rooms = []
+        room_prefixes = ["Building A - Room", "Building B - Room", "Lab", "Lecture Hall", "Seminar Room", "Computer Lab"]
         for i in range(rooms_n):
-            name = f"R-{fake.random_uppercase_letter()}{fake.random_uppercase_letter()}{random.randint(1,99)}"
+            prefix = random.choice(room_prefixes)
+            if prefix in ["Lab", "Computer Lab"]:
+                room_num = random.randint(101, 450)
+            elif prefix == "Lecture Hall":
+                room_num = random.randint(1, 15)
+            else:
+                room_num = random.randint(101, 550)
+            name = f"{prefix} {room_num}"
             r, _ = Room.objects.get_or_create(name=name)
             rooms.append(r)
 
@@ -146,8 +200,13 @@ class Command(BaseCommand):
         
         # Admin
         if not User.objects.filter(username="admin").exists():
-            User.objects.create_superuser("admin", "johny@doe.com", "bomaylaadmin")
-            self.stdout.write("Created superuser: admin")
+            User.objects.create_superuser("admin", "admin@example.com", "adminpass")
+            self.stdout.write("Created superuser: admin/admin")
+        if not User.objects.filter(username="usth").exists():
+            usth = User.objects.create_user("usth", "usth@example.com", "usthpass", role="administrator")
+            from users.models import AdministratorProfile
+            AdministratorProfile.objects.create(user= usth, email="usth@example.com", name="USTH", admin_id="USTH001")
+            self.stdout.write("Created admin: USTH")
 
         # DAA (Department Academic Assistant)
         if not User.objects.filter(username="daa").exists():

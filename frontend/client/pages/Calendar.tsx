@@ -214,6 +214,7 @@ export default function CalendarPage() {
     // pending events get yellow background
     if (status === 'pending') return { dot: 'bg-yellow-500', block: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
     if (status === 'request_change') return { dot: 'bg-red-500', block: 'bg-red-100 text-red-800 border-red-200' };
+    if (status === 'cancelled') return { dot: 'bg-gray-500', block: 'bg-gray-100 text-gray-500 border-gray-200 line-through' };
 
     const def = { dot: 'bg-blue-500', block: 'bg-blue-600 text-white' };
     if (!t) return def;
@@ -443,7 +444,94 @@ export default function CalendarPage() {
                   </SelectContent>
                 </Select>
 
-                <Button variant="outline" size="sm">Report</Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">Report</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Monthly Report - {displayMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' })}</DialogTitle>
+                      <DialogDescription>
+                        Summary of events for this month.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-6">
+                      {(() => {
+                        // 1. Filter events for the current displayed month
+                        const currentMonthEvents = events.filter(e => {
+                          const d = new Date(e.date || '');
+                          // Exclude cancelled/rejected if that's the desired "what used to be here" or "what is arguably effective"? 
+                          // "only events that the user can see in their personalized calendar"
+                          // Usually cancelled events ARE seen (grayed out), but for a "Report" of "how many lectures", usually implies active ones?
+                          // User said: "cancelled events should appear gray... user can see".
+                          // However, reporting usually counts valid scheduled items. 
+                          // Let's include everything BUT rejected? Or maybe separate cancelled?
+                          // Let's stick to "active" (approved/pending) + cancelled?
+                          // Let's count them based on visibility. If they see gray dots, they are in the calendar.
+                          return d.getMonth() === displayMonth.getMonth() &&
+                            d.getFullYear() === displayMonth.getFullYear() &&
+                            e.status !== 'rejected';
+                        });
+
+                        // 2. Count by Type
+                        const typeCounts: Record<string, number> = {};
+                        currentMonthEvents.forEach(e => {
+                          const t = e.event_type || 'Other';
+                          // maybe capitalize
+                          const key = t.charAt(0).toUpperCase() + t.slice(1);
+                          typeCounts[key] = (typeCounts[key] || 0) + 1;
+                        });
+
+                        // 3. Count by Course
+                        const courseCounts: Record<string, number> = {};
+                        currentMonthEvents.forEach(e => {
+                          const c = e.course_name || 'Unknown Course';
+                          courseCounts[c] = (courseCounts[c] || 0) + 1;
+                        });
+
+                        return (
+                          <>
+                            <div>
+                              <h4 className="mb-2 text-sm font-semibold text-gray-900">Events by Type</h4>
+                              {Object.keys(typeCounts).length === 0 ? (
+                                <p className="text-sm text-gray-500">No events found.</p>
+                              ) : (
+                                <div className="space-y-1">
+                                  {Object.entries(typeCounts).map(([type, count]) => (
+                                    <div key={type} className="flex justify-between text-sm">
+                                      <span className="text-gray-600">{type}</span>
+                                      <span className="font-medium text-gray-900">{count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="border-t pt-4">
+                              <h4 className="mb-2 text-sm font-semibold text-gray-900">Events by Course</h4>
+                              {Object.keys(courseCounts).length === 0 ? (
+                                <p className="text-sm text-gray-500">No events found.</p>
+                              ) : (
+                                <div className="space-y-1 max-h-[200px] overflow-auto">
+                                  {Object.entries(courseCounts).map(([course, count]) => (
+                                    <div key={course} className="flex justify-between text-sm">
+                                      <span className="text-gray-600 truncate pr-4" title={course}>{course}</span>
+                                      <span className="font-medium text-gray-900">{count}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="border-t pt-4 text-xs text-gray-400 text-center">
+                              Total Events: {currentMonthEvents.length}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </DialogContent>
+                </Dialog>
 
                 <Dialog open={exportOpen} onOpenChange={setExportOpen}>
                   <DialogTrigger asChild>
@@ -652,14 +740,16 @@ export default function CalendarPage() {
                                     // If any approved -> show 1 blue dot
                                     // If both -> show both
                                     const hasPending = eventsForDay.some(e => e.status === 'pending');
-                                    const hasApproved = eventsForDay.some(e => e.status !== 'pending' && e.status !== 'rejected' && e.status !== 'request_change');
+                                    const hasApproved = eventsForDay.some(e => e.status === 'approved');
                                     const hasRequestChange = eventsForDay.some(e => e.status === 'request_change');
+                                    const hasCancelled = eventsForDay.some(e => e.status === 'cancelled');
 
                                     return (
                                       <>
                                         {hasPending && <span className="bg-yellow-500 w-3 h-3 rounded-full" title="Pending Events" />}
                                         {hasApproved && <span className="bg-blue-500 w-3 h-3 rounded-full" title="Approved Events" />}
                                         {hasRequestChange && <span className="bg-red-500 w-3 h-3 rounded-full" title="Change Requests" />}
+                                        {hasCancelled && <span className="bg-gray-500 w-3 h-3 rounded-full" title="Cancelled Events" />}
                                       </>
                                     );
                                   })()}
@@ -822,7 +912,7 @@ export default function CalendarPage() {
                                   <span className="font-semibold not-italic">Note:</span> {e.notes}
                                 </div>
                               )}
-                              {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : e.status === 'request_change' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-700'}`}>{e.status.replace('_', ' ')}</div>}
+                              {e.status && <div className={`mt-2 inline-block px-2 py-1 text-xs font-medium rounded-full ${e.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : e.status === 'request_change' ? 'bg-red-100 text-red-800' : e.status === 'cancelled' ? 'bg-gray-100 text-gray-800' : 'bg-green-100 text-green-700'}`}>{e.status.replace('_', ' ')}</div>}
 
                               {/* Edit Event Button for Authorized Users or Event Owner (Tutor) */}
                               {(hasAuthority || profile?.role === "academic_assistant" || (profile?.role === "tutor" && e.tutor === profile?.id)) && (

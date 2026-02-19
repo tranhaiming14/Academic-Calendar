@@ -387,7 +387,46 @@ export function CreateEventForm({ onDone, initialData }: CreateEventFormProps) {
         <button type="submit" disabled={saved} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
           {initialData ? 'Update Event' : 'Create & Send to DAA'}
         </button>
-        <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Cancel</button>
+
+        {/* Cancel Event Button for Admin/DAA */}
+        {initialData && ['administrator', 'department_assistant'].includes(getLocalProfile()?.role || '') && (
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const token = localStorage.getItem("accessToken");
+                const headers: any = { 'Content-Type': 'application/json' };
+                if (token) headers.Authorization = `Bearer ${token}`;
+
+                // Use the edit endpoint with action="cancel"
+                const res = await fetch(`${API_BASE}/api/calendar/edit_event/${initialData.id}/`, {
+                  method: 'PUT',
+                  headers,
+                  body: JSON.stringify({ action: 'cancel' }),
+                });
+
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  alert("Failed to cancel event: " + (err.detail || res.statusText));
+                  return;
+                }
+
+                // Success
+                setSaved(true); // Show momentary success feedback if desired, or just close
+                try { window.dispatchEvent(new Event('events:changed')); } catch (_) { }
+                if (onDone) onDone();
+              } catch (err) {
+                console.error(err);
+                alert("Network error while cancelling event");
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+          >
+            Cancel Event
+          </button>
+        )}
+
+        <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">Close</button>
       </div>
     </form>
   );

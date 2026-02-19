@@ -211,29 +211,15 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-# CORS configuration
-# By default only local dev origins are allowed. In production set the
-# `CORS_ALLOWED_ORIGINS` env var to a comma-separated list (e.g.
-# "https://acccalendar.netlify.app,https://academic-calendar-7zau.onrender.com").
-CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('1', 'true', 'yes')
-
-if CORS_ALLOW_ALL_ORIGINS:
-    CORS_ALLOWED_ORIGINS = []
-else:
-    env_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
-    if env_origins:
-        CORS_ALLOWED_ORIGINS = [o.strip() for o in env_origins.split(',') if o.strip()]
-    else:
-        # sensible development defaults
-        CORS_ALLOWED_ORIGINS = [
-            "http://localhost:8080",
-            "http://127.0.0.1:8080",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ]
-
-# Allow frontend to include credentials if needed (set to 'True' in env to enable)
-CORS_ALLOW_CREDENTIALS = os.getenv('CORS_ALLOW_CREDENTIALS', 'False').lower() in ('1', 'true', 'yes')
+# Development convenience: allow frontend dev server to call API
+# Restrict CORS to known frontend origins for safer development
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 # near top: DEBUG = True (ensure debug enabled in dev)
 # Debug toolbar removed per configuration
 # if DEBUG:
