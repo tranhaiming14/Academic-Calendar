@@ -266,6 +266,12 @@ class StaffListView(generics.ListAPIView):
 	def get_queryset(self):
 		User = get_user_model()
 		qs = User.objects.filter(role__in=("tutor", "academic_assistant", "department_assistant")).order_by('first_name')
+		# eager-load related one-to-one profile objects to avoid N+1 queries in the serializer
+		try:
+			qs = qs.select_related('tutor_profile', 'academic_assistant_profile', 'department_academic_assistant_profile', 'administrator_profile')
+		except Exception:
+			# fall back to prefetch_related if select_related isn't supported for reverse relations
+			qs = qs.prefetch_related('tutor_profile', 'academic_assistant_profile', 'department_academic_assistant_profile', 'administrator_profile')
 		q = self.request.query_params.get('q')
 		if q:
 			qs = qs.filter(models.Q(username__icontains=q) | models.Q(email__icontains=q) | models.Q(first_name__icontains=q) | models.Q(tutor_profile__name__icontains=q) | models.Q(academic_assistant_profile__name__icontains=q) | models.Q(department_academic_assistant_profile__name__icontains=q))
@@ -337,8 +343,9 @@ class MajorListView(APIView):
 	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
 
 	def get(self, request):
-		majors = Major.objects.all().order_by('name')
-		data = [{"id": m.id, "name": m.name} for m in majors]
+		# use .values() to avoid instantiating full model instances when only id/name are needed
+		majors = Major.objects.all().order_by('name').values('id', 'name')
+		data = list(majors)
 		return Response(data)
 
 
