@@ -5,6 +5,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 from django.db import models
+from django.core.cache import cache
 
 from .models import StudentProfile
 from calendar_app.models import Major, AuditLog
@@ -310,7 +311,9 @@ class StudentListView(generics.ListAPIView):
 	pagination_class = StudentPagePagination
 
 	def get_queryset(self):
-		qs = StudentProfile.objects.all().order_by('student_id')
+		# eager-load the related `major` and `user` to avoid N+1 queries when
+		# serializing student objects (StudentProfileSerializer accesses `major`).
+		qs = StudentProfile.objects.select_related('major', 'user').all().order_by('student_id')
 		# optional search by name or student_id
 		q = self.request.query_params.get('q')
 		if q:
@@ -343,9 +346,19 @@ class MajorListView(APIView):
 	permission_classes = (IsDAAOrAdminOrHasModelPerm,)
 
 	def get(self, request):
-		# use .values() to avoid instantiating full model instances when only id/name are needed
-		majors = Major.objects.all().order_by('name').values('id', 'name')
-		data = list(majors)
+		# cache the majors list since it changes infrequently; caching avoids
+		# repeated DB reads and speeds up this lightweight endpoint dramatically.
+		cache_key = 'majors_list_v1'
+		data = cache.get(cache_key)
+		if data is None:
+			majors = Major.objects.all().order_by('name').values('id', 'name')
+			data = list(majors)
+			# cache for 1 hour
+			try:
+				cache.set(cache_key, data, 60 * 60)
+			except Exception:
+				# if cache backend not configured, ignore and return fresh data
+				pass
 		return Response(data)
 
 
